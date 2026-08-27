@@ -24,7 +24,7 @@ dependencies = [
     "pinecone>=4.0",
 
     "celery[librabbitmq]>=5.3",
-    "redis>=5.0",
+    "redis>=4.2,<5.0",
     "flower",
     "gevent",
 
