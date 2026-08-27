@@ -12,6 +12,7 @@ An AI-powered Competitive Intelligence (CI) platform designed to automate the tr
 
 | Layer | Technology | Key Responsibility |
 | --- | --- | --- |
+| Frontend | NextJS | |
 | Backend Framework | Python / FastAPI | High-performance async REST API, request routing, and business logic. |
 | Relational Storage | PostgreSQL | Structured relational data: user management, competitor profiles, URL registries, and audit logs. |
 | Document Store | MongoDB | Raw ingestion data lake: full HTML dumps, raw API JSON responses, and versioned page snapshots. |
