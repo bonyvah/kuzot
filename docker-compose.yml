@@ -1,0 +1,140 @@
+name: kuzot
+services:
+
+  # ─── Infrastructure ────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: kuzot-postgres 
+    environment:
+      POSTGRES_DB: kuzot
+      POSTGRES_USER: kuzot
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kuzot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: kuzot-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: kuzot-redis
+    command: redis-server --appendonly yes   # persist to disk
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine  # management = includes web UI
+    container_name: kuzot-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: kuzot
+      RABBITMQ_DEFAULT_PASS: secret
+    ports:
+      - "5672:5672"     # AMQP protocol (Celery connects here)
+      - "15672:15672"   # Management UI (browser dashboard)
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend ───────────────────────────────────────────────────
+  api:
+    container_name: kuzot-api
+    build: ./backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    env_file: ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:                       
+        condition: service_healthy
+    volumes:
+      - ./backend:/app          # live reload during dev
+
+  worker_scraping:
+    build: ./backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "scraping", "--pool=gevent", "--concurrency=50", "--loglevel=info"]
+    env_file: ./backend/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  worker_embedding:
+    build: ./backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "embedding", "--pool=prefork", "--concurrency=4", "--loglevel=info"]
+    env_file: ./backend/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
+  beat:
+    build: ./backend
+    command: ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel=info"]
+    env_file: ./backend/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
+  flower:                        # Celery task monitoring UI
+    build: ./backend
+    command: ["celery", "-A", "app.workers.celery_app", "flower", "--port=5555"]
+    ports:
+      - "5555:5555"
+    env_file: ./backend/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started  
+    volumes:
+      - ./backend:/app 
+  db_test:
+    image: postgres:16
+    container_name: kuzot-db-test
+    environment:
+      POSTGRES_DB: kuzot_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+
+volumes:
+  pgdata:
+  mongodata:
+  redisdata:
+  rabbitmqdata:
