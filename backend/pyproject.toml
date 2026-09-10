@@ -50,4 +50,21 @@ dev = [
     "ruff>=0.6.0",
     "pytest-cov>=5.0.0",
 ]
-# ... rest stays the same
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["app"]
+concurrency = ["greenlet"]
+omit = ["app/core/config.py", "app/db/postgres.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
