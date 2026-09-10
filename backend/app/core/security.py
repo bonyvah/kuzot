@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
@@ -12,7 +14,7 @@ async def verify_app_key(api_key: str | None = Security(API_KEY_HEADER)) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API key. Include 'X-API-Key' header.",
         )
-    if api_key != settings.API_SECRET_KEY:
+    if not secrets.compare_digest(api_key, settings.API_SECRET_KEY):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API Key."
