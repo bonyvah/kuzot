@@ -1,3 +1,4 @@
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,7 +34,7 @@ class Settings(BaseSettings):
     API_SECRET_KEY: str
 
     # ── App ──────────────────────────────────────────
-    APP_ENV: str = "development"
+    APP_ENV: Literal["dev", "prod", "test"] = "dev"
     DEBUG: bool = False
 
 
