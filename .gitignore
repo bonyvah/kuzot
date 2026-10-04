@@ -1,1 +1,13 @@
 plan
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+.venv/
+node_modules/
+dist/
+.DS_Store

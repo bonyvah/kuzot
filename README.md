@@ -10,12 +10,22 @@ An AI-powered Competitive Intelligence (CI) platform designed to automate the tr
 
 ## Tech Stack
 
-| Layer | Technology | Key Responsibility |
-| --- | --- | --- |
-| Frontend | NextJS | |
-| Backend Framework | Python / FastAPI | High-performance async REST API, request routing, and business logic. |
-| Relational Storage | PostgreSQL | Structured relational data: user management, competitor profiles, URL registries, and audit logs. |
-| Document Store | MongoDB | Raw ingestion data lake: full HTML dumps, raw API JSON responses, and versioned page snapshots. |
-| Vector Database | Pinecone | Dense vector storage and similarity search for document embeddings. |
-| AI Orchestration | LangChain | Text splitting, embedding generation, prompt management, and RAG retrieval pipelines. |
-| Background Processing | Celery + Redis | Distributed task queue for asynchronous web scraping and background embedding jobs. |
+Architecture & Patterns: Event-Driven Architecture, Retrieval-Augmented Generation (RAG), Asynchronous Task Processing, RESTful APIs.
+
+Backend: Python, FastAPI, SQLAlchemy, Pydantic.
+
+Frontend: React (TypeScript), Vite, Tailwind CSS, shadcn/ui, Material Symbols (Google icons).
+
+State & Data Fetching: Zustand, TanStack Query, TanStack Router, Axios.
+
+AI & Search: LangChain, Pinecone (Vector Database), OpenAI APIs.
+
+Data Storage: PostgreSQL (App data), MongoDB (unstructured HTML scrapes).
+
+Caching & Message Broker: Redis (Caching), Celery (Distributed Task Queue), RabbitMQ(Task Broker).
+
+Web Scraping: Playwright, Rotating Proxies, Headless Browser Automation.
+
+Auth & Security: Clerk, OAuth2, JWT Authentication, AWS Secrets Manager.
+
+DevOps & Cloud: Docker (Containerization), GitHub Actions (CI/CD), Terraform (IaC), AWS (ECS Fargate, ALB, ECR, S3, RDS, ElastiCache).
