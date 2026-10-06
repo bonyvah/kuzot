@@ -60,8 +60,10 @@ async def list_competitors(
     items, total = await competitor_crud.list_by_workspace(db, workspace_id=workspace_id, skip=skip, limit=size)
     pages = math.ceil(total / size) if total > 0 else 1
 
+    competitor_items = [CompetitorPublic.model_validate(item) for item in items]
+
     return PaginatedResponse[CompetitorPublic](
-        items=items,
+        items=competitor_items,
         total=total,
         page=page,
         size=size,
@@ -79,6 +81,8 @@ async def get_competitor(
     if not competitor:
         raise CompetitorNotFoundError(str(competitor_id))
     workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
     return competitor
@@ -95,6 +99,8 @@ async def update_competitor(
     if not competitor:
         raise CompetitorNotFoundError(str(competitor_id))
     workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
     return await competitor_crud.update(db, competitor, body)
@@ -110,6 +116,8 @@ async def delete_competitor(
     if not competitor:
         raise CompetitorNotFoundError(str(competitor_id))
     workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
     await competitor_crud.delete(db, competitor)
@@ -133,6 +141,8 @@ async def add_monitored_url(
     if not competitor:
         raise CompetitorNotFoundError(str(competitor_id))
     workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
     return await monitored_url_crud.create(db, competitor_id=competitor_id, obj_in=body)
@@ -149,7 +159,11 @@ async def delete_monitored_url(
         raise MonitoredURLNotFoundError(str(url_id))
 
     competitor = await competitor_crud.get_by_id(db, monitored_url.competitor_id)
+    if not competitor:
+        raise CompetitorNotFoundError(str(monitored_url.competitor_id))
     workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
     await monitored_url_crud.delete(db, monitored_url)

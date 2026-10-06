@@ -42,3 +42,22 @@ async def test_organization_crud(client: AsyncClient):
     )
     assert update_res.status_code == 200
     assert update_res.json()["name"] == "Acme Global"
+
+    # Attempt to create 2nd personal org (should fail with 400)
+    personal_res = await client.post(
+        "/api/v1/organizations/",
+        json={"name": "Second Personal Org", "org_type": "personal"},
+        headers=headers,
+    )
+    assert personal_res.status_code == 400
+    assert "Maximum 1 personal organization allowed" in personal_res.json()["detail"]
+
+    # Attempt to add member to personal org (should fail with 400)
+    personal_org_id = orgs[0]["id"]
+    invite_res = await client.post(
+        f"/api/v1/organizations/{personal_org_id}/members",
+        json={"user_id": reg_res.json()["id"], "role": "member"},
+        headers=headers,
+    )
+    assert invite_res.status_code == 400
+    assert "Personal organizations cannot have additional members" in invite_res.json()["detail"]

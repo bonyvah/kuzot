@@ -17,6 +17,8 @@ from app.schemas.organization import (
     UpdateMemberRoleRequest,
 )
 
+from app.models.organization import OrgType
+
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
 
@@ -26,6 +28,14 @@ async def create_organization(
     current_user: CurrentUser,
     db: DBSession,
 ):
+    if body.org_type == OrgType.PERSONAL:
+        existing_personal = await organization_crud.get_user_personal_org(db, user_id=current_user.id)
+        if existing_personal:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already has a personal organization. Maximum 1 personal organization allowed.",
+            )
+
     return await organization_crud.create(db, obj_in=body, user_id=current_user.id)
 
 
@@ -98,6 +108,16 @@ async def add_org_member(
     db: DBSession,
 ):
     await require_org_role(current_user, org_id, MemberRole.ADMIN, db)
+    org = await organization_crud.get_by_id(db, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    if org.org_type == OrgType.PERSONAL:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Personal organizations cannot have additional members",
+        )
+
     user_to_add = await user_crud.get_by_id(db, body.user_id)
     if not user_to_add:
         raise HTTPException(status_code=404, detail="User not found")

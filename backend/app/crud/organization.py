@@ -24,6 +24,16 @@ class OrganizationCRUD:
         result = await db.execute(select(Organization).where(Organization.slug == slug))
         return result.scalar_one_or_none()
 
+    async def get_user_personal_org(self, db: AsyncSession, user_id: UUID) -> Organization | None:
+        result = await db.execute(
+            select(Organization)
+            .where(
+                Organization.created_by_user_id == user_id,
+                Organization.org_type == OrgType.PERSONAL,
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def list_user_orgs(
         self, db: AsyncSession, user_id: UUID
     ) -> list[Organization]:

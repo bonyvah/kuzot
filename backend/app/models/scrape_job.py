@@ -35,7 +35,9 @@ class ScrapeJob(Base):
     status: Mapped[ScrapeJobStatus] = mapped_column(
         Enum(ScrapeJobStatus, native_enum=False), default=ScrapeJobStatus.PENDING
     )
-    triggered_by: Mapped[TriggeredBy] = mapped_column(Enum(TriggeredBy))
+    triggered_by: Mapped[TriggeredBy] = mapped_column(
+        Enum(TriggeredBy, native_enum=False)
+    )
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
     error_message: Mapped[str | None] = mapped_column(Text)

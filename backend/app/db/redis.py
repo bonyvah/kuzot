@@ -1,5 +1,5 @@
 from redis.asyncio import from_url, Redis
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from app.core.config import settings
 
@@ -15,3 +15,7 @@ def set_redis(app:FastAPI):
 
 async def close_redis(app:FastAPI):
     await app.state.redis.aclose()
+
+async def get_redis(request: Request) -> Redis:
+    """FastAPI Dependency for accessing the Redis client."""
+    return request.app.state.redis

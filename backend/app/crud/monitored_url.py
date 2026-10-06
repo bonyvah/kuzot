@@ -35,7 +35,22 @@ class MonitoredURLCRUD:
         await db.commit()
         await db.refresh(monitored_url)
         return monitored_url
-
+    
+    async def update(
+        self,
+        db: AsyncSession,
+        monitored_url: MonitoredURL,
+        scrape_interval_minutes: int | None = None,
+        is_active: bool | None = None,
+    ) -> MonitoredURL:
+        if scrape_interval_minutes is not None:
+            monitored_url.scrape_interval_minutes = scrape_interval_minutes
+        if is_active is not None:
+            monitored_url.is_active = is_active
+        await db.commit()
+        await db.refresh(monitored_url)
+        return monitored_url
+    
     async def delete(self, db: AsyncSession, monitored_url: MonitoredURL) -> None:
         await db.delete(monitored_url)
         await db.commit()
