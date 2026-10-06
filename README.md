@@ -28,4 +28,4 @@ Web Scraping: Playwright, Rotating Proxies, Headless Browser Automation.
 
 Auth & Security: Clerk, OAuth2, JWT Authentication, AWS Secrets Manager.
 
-DevOps & Cloud: Docker (Containerization), GitHub Actions (CI/CD), Terraform (IaC), AWS (ECS Fargate, ALB, ECR, S3, RDS, ElastiCache).
+DevOps & Cloud: Docker (Containerization), Nginx (Reverse Proxy & Static Asset Serving), GitHub Actions (CI/CD), Terraform (IaC), AWS (ECS Fargate, ALB, ECR, S3, RDS, ElastiCache).

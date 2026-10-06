@@ -38,7 +38,7 @@ delivered through a semantic search interface and natural language AI reports.
 | Caching | Redis |
 | Web Scraping | Playwright (headless browser) |
 | Frontend | React, TypeScript, Vite |
-| Cloud & DevOps | AWS (ECS, RDS, ElastiCache, S3), Docker, Terraform, GitHub Actions |
+| Cloud & DevOps | AWS (ECS, RDS, ElastiCache, S3), Docker, Terraform, GitHub Actions, Nginx (Reverse Proxy & Static Asset Serving) |
 | Local AWS Emulation | LocalStack — full AWS emulation with IAM enforcement |
 | Payments | Finik (Kyrgyzstan) & Stripe (World)|
 
@@ -47,7 +47,7 @@ delivered through a semantic search interface and natural language AI reports.
 ## 13-Week Plan
 
 ### Week 1 — Project Foundation
-Set up the complete development environment including all databases, message broker, and
+Set up the complete development environment including all databases, message broker, Nginx reverse proxy, and
 containerized infrastructure. Configure LocalStack for local
 AWS service emulation with IAM enforcement enabled — ensuring permission policies are
 correct before ever touching real AWS. Define the full database schema covering users,
@@ -146,12 +146,9 @@ Implement tiered plan enforcement (Free, Individual, Team) with feature limits. 
 ---
 
 ### Week 12 — Cloud Deployment & CI/CD
-Set up GitHub Actions for automated testing and Docker image building. Deploy the application
-using a production Docker Compose configuration on a cloud VPS (primary goal — guarantees
-a live, demonstrable deployment). In parallel, provision AWS infrastructure using Terraform
-(ECS Fargate, RDS, ElastiCache, S3, ECR, ALB) as a stretch goal, progressing as time allows.
+Set up GitHub Actions for automated testing and Docker image building. Deploy the application using a production Docker Compose configuration on a cloud VPS featuring **Nginx for SSL termination, reverse proxy routing, and static frontend serving** (primary goal — guarantees a live, demonstrable deployment). In parallel, provision AWS infrastructure using Terraform (ECS Fargate, RDS, ElastiCache, S3, ECR, ALB) as a stretch goal, progressing as time allows.
 
-**Deliverable:** Application live and accessible on a real domain with automated CI/CD. AWS infrastructure provisioned where time permits.
+**Deliverable:** Application live and accessible on a real domain via Nginx reverse proxy with automated CI/CD. AWS infrastructure provisioned where time permits.
 
 ---
 
@@ -178,5 +175,5 @@ architecture diagrams, and a comprehensive README. Prepare a live demo presentat
 | 9 | Frontend Core | Dashboard + competitor management |
 | 10 | Frontend AI | Search + report UI |
 | 11 | Billing | Payment integration + plan limits |
-| 12 | Cloud Deployment | AWS production + CI/CD |
+| 12 | Cloud Deployment | VPS deploy with Nginx + SSL, AWS production + CI/CD |
 | 13 | Testing & Docs | 80% test coverage |
