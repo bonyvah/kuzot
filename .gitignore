@@ -1,4 +1,4 @@
-plan
+notes
 __pycache__/
 *.pyc
 *.pyo
@@ -11,3 +11,4 @@ htmlcov/
 node_modules/
 dist/
 .DS_Store
+celerybeat-schedule
