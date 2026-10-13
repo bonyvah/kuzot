@@ -36,3 +36,6 @@ test: ## Run backend unit/integration tests
 
 clean: ## Stop containers and remove volumes
 	docker compose down -v
+
+shell:
+	docker compose exec api sh
