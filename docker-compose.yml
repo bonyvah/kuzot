@@ -86,6 +86,22 @@ services:
     volumes:
       - ./backend:/app
 
+  worker_browser:
+    build: ./backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "browser", "--pool=prefork", "--concurrency=2", "--loglevel=info"]
+    user: "1000:1000"      # untrusted pages: don't run Chromium as root (match host uid for the bind mount)
+    shm_size: "512mb"      # Chromium needs more than Docker's default 64MB /dev/shm
+    env_file: ./backend/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
   worker_embedding:
     build: ./backend
     command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "embedding", "--pool=prefork", "--concurrency=4", "--loglevel=info"]
