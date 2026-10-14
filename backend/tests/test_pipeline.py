@@ -313,6 +313,7 @@ def test_unexpected_error_fails_job_and_reraises(
 
     job = get_job(sync_session, job_id)
     assert job.status == ScrapeJobStatus.FAILED
+    assert job.error_message is not None
     assert "RuntimeError: boom" in job.error_message
 
 
@@ -343,6 +344,7 @@ def test_thin_page_after_browser_fails_job(
     assert result["status"] == "failed"
     job = get_job(sync_session, job_id)
     assert job.status == ScrapeJobStatus.FAILED
+    assert job.error_message is not None
     assert "browser rendering" in job.error_message
 
 

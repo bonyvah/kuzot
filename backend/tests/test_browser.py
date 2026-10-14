@@ -99,7 +99,7 @@ def test_heavy_resources_are_blocked(fake_playwright):
 
     actions = []
 
-    def route_for(kind):
+    def route_for(kind) -> SimpleNamespace:
         return SimpleNamespace(
             request=SimpleNamespace(resource_type=kind),
             abort=lambda: actions.append(("abort", kind)),
@@ -107,6 +107,7 @@ def test_heavy_resources_are_blocked(fake_playwright):
         )
 
     for kind in ["image", "font", "media", "document", "script"]:
+        assert page.route_handler is not None
         page.route_handler(route_for(kind))
 
     assert page.route_pattern == "**/*"
