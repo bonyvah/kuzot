@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     PINECONE_API_KEY: str
     PINECONE_INDEX_NAME: str
+    PINECONE_HOST: str | None = None      # http://pinecone:5081 for Pinecone Local
+    PINECONE_CLOUD: str = "aws"           # serverless spec, only for index creation
+    PINECONE_REGION: str = "us-east-1"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSIONS: int = 1536      # must match the model and the index
 
     # ── Auth (JWT) ──────────────────────────────────────────────────
     JWT_SECRET_KEY: str

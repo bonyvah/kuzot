@@ -21,6 +21,10 @@ async def connect_to_mongo() -> None:
     await mongodb.db.page_snapshots.create_index([("content_hash", 1)])
     await mongodb.db.change_events.create_index([("detected_at", -1)])
     await mongodb.db.change_events.create_index([("embedding_status", 1)])
+    await mongodb.db.change_events.create_index(
+        [("monitored_url_id", 1), ("detected_at", -1)]
+    )
+    await mongodb.db.page_chunks.create_index([("monitored_url_id", 1)])
 
 
 async def close_mongo_connection() -> None:
