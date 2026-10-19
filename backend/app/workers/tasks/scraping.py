@@ -14,7 +14,9 @@ def scrape_url(self, job_id: str) -> dict:
         return run_scrape(job_id, self.request.id, use_browser=False)
     except BrowserRequired:
         celery_app.send_task(
-            "app.workers.tasks.browser.scrape_url_browser", args=[job_id]
+            "app.workers.tasks.browser.scrape_url_browser",
+            args=[job_id],
+            ignore_result=True,
         )
         return {"status": "escalated_to_browser"}
 

@@ -121,5 +121,6 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
         celery_app.send_task(
             "app.workers.tasks.embedding.process_change_event",
             args=[str(event_id)],
+            ignore_result=True,
         )
     return {"status": "success", "changed": changed, "browser": use_browser}
