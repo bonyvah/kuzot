@@ -52,6 +52,22 @@ services:
       timeout: 5s
       retries: 5
 
+  pinecone:                      # Pinecone Local: in-memory, wiped on restart
+    image: ghcr.io/pinecone-io/pinecone-index:v1.0.0.rc0
+    container_name: kuzot-pinecone
+    environment:
+      PORT: 5081
+      INDEX_TYPE: serverless
+      VECTOR_TYPE: dense
+      DIMENSION: 1536              # must match EMBEDDING_DIMENSIONS
+      METRIC: cosine
+    ports:
+      - "5081:5081"
+    networks:
+      default:
+        aliases:
+          - pinecone.internal      # the Pinecone client rejects hosts without a dot
+
   # ─── Backend ───────────────────────────────────────────────────
   api:
     container_name: kuzot-api
@@ -110,6 +126,12 @@ services:
       rabbitmq:
         condition: service_healthy
       redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      pinecone:
         condition: service_started
     volumes:
       - ./backend:/app
