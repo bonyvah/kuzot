@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 
-import httpx
+import httpx2
 import openai
 import pytest
 from bson import ObjectId
@@ -325,7 +325,7 @@ def test_task_marks_event_failed_on_permanent_error(mongo, store, monkeypatch, t
     assert "AuthenticationError" in event["embedding_error"]
 
 
-def _fake_response(status: int) -> httpx.Response:
-    return httpx.Response(
-        status, request=httpx.Request("POST", "https://api.openai.com")
+def _fake_response(status: int) -> httpx2.Response:
+    return httpx2.Response(
+        status, request=httpx2.Request("POST", "https://api.openai.com")
     )
