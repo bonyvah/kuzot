@@ -28,3 +28,11 @@ class EmbeddingError(HTTPException):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Embedding pipeline failed: '{reason}'"
         )
+
+
+class AIServiceError(HTTPException):
+    def __init__(self, reason: str) -> None:
+        super().__init__(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI service unavailable: {reason}"
+        )

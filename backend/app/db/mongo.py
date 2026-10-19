@@ -25,6 +25,7 @@ async def connect_to_mongo() -> None:
         [("monitored_url_id", 1), ("detected_at", -1)]
     )
     await mongodb.db.page_chunks.create_index([("monitored_url_id", 1)])
+    await mongodb.db.reports.create_index([("workspace_id", 1), ("created_at", -1)])
 
 
 async def close_mongo_connection() -> None:

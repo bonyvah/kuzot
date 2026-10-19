@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     PINECONE_REGION: str = "us-east-1"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMENSIONS: int = 1536      # must match the model and the index
+    OPENAI_REPORT_MODEL: str = "gpt-5.4-mini"
 
     # ── Auth (JWT) ──────────────────────────────────────────────────
     JWT_SECRET_KEY: str
