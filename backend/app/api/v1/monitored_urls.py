@@ -2,6 +2,7 @@ import math
 from typing import Annotated
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.concurrency import run_in_threadpool
 from redis.asyncio import Redis
 
 from app.core.auth_dependencies import CurrentUser, require_org_role
@@ -18,6 +19,7 @@ from app.models.scrape_job import TriggeredBy
 from app.schemas.common import PaginatedResponse
 from app.schemas.competitor import MonitoredURLPublic
 from app.schemas.scrape_job import ScrapeJobCreate, ScrapeJobPublic
+from app.workers.enqueue import enqueue_scrape
 
 router = APIRouter(tags=["Monitored URLs & Scraping"])
 
@@ -119,6 +121,17 @@ async def trigger_manual_scrape(
         db,
         obj_in=ScrapeJobCreate(monitored_url_id=url_id, triggered_by=TriggeredBy.MANUAL),
     )
+
+    # the job is committed first so the worker can always find it; publishing
+    # is blocking network I/O, so keep it off the event loop
+    try:
+        await run_in_threadpool(enqueue_scrape, job.id)
+    except Exception:
+        await scrape_job_crud.mark_failed(db, job, "Could not enqueue: broker unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Scraping queue is unavailable, try again shortly",
+        )
 
     return job
 

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +36,16 @@ class ScrapeJobCRUD:
             triggered_by=obj_in.triggered_by,
         )
         db.add(job)
+        await db.commit()
+        await db.refresh(job)
+        return job
+
+    async def mark_failed(
+        self, db: AsyncSession, job: ScrapeJob, message: str
+    ) -> ScrapeJob:
+        job.status = ScrapeJobStatus.FAILED
+        job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        job.error_message = message[:1000]
         await db.commit()
         await db.refresh(job)
         return job
