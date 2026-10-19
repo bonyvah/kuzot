@@ -3,7 +3,12 @@ from uuid import UUID
 
 from app.models import MonitoredURL, ScrapeJob, ScrapeJobStatus
 from app.scraping.browser import fetch_rendered
-from app.scraping.extractor import extract_text, is_thin, normalize_text
+from app.scraping.extractor import (
+    extract_text,
+    is_thin,
+    normalize_text,
+    split_paragraphs,
+)
 from app.scraping.fetcher import FetchError, TransientFetchError, fetch_html
 from app.scraping.hashing import content_hash, has_changed
 from app.workers.celery_app import celery_app
@@ -59,6 +64,7 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
                 raise BrowserRequired()
             raise FetchError("Too little text extracted even after browser rendering")
         text = normalize_text(raw_text)
+        paragraphs = split_paragraphs(raw_text)
         new_hash = content_hash(text)
     except BrowserRequired:
         raise
@@ -85,6 +91,7 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
                 "url": result.url,
                 "content_hash": new_hash,
                 "text": text,
+                "paragraphs": paragraphs,  # line structure, for chunking
                 "scraped_at": now,
                 "rendered_with": "browser" if use_browser else "httpx",
             }

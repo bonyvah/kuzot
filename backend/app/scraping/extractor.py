@@ -41,3 +41,7 @@ def normalize_text(text: str) -> str:
 def is_thin(text: str | None) -> bool:
     """True when extraction found too little: trigger the Playwright fallback."""
     return text is None or len(text) < MIN_TEXT_CHARS
+
+def split_paragraphs(text: str) -> list[str]:
+    """Normalized non-empty lines: the units the embedding chunker packs."""
+    return [p for p in (normalize_text(line) for line in text.splitlines()) if p]
