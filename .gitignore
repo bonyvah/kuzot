@@ -13,3 +13,5 @@ dist/
 .DS_Store
 celerybeat-schedule
 .vscode
+.playwright-mcp/
+analysis/
