@@ -1,0 +1,84 @@
+.field + .field {
+  margin-top: 24px;
+}
+
+.field__box {
+  position: relative;
+}
+
+.field__input {
+  width: 100%;
+  height: 56px;
+  padding: 0 15px;
+  font-size: 16px;
+  background: transparent;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-field);
+  outline: none;
+}
+
+.field__input:hover {
+  border-color: var(--text);
+}
+
+.field__input:focus {
+  border: 2px solid var(--primary);
+  padding: 0 14px;
+}
+
+.field__label {
+  position: absolute;
+  left: 11px;
+  top: 16px;
+  padding: 0 4px;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--text-secondary);
+  /* Matches the card so the floated label cuts through the outline. */
+  background: var(--field-bg, var(--surface));
+  pointer-events: none;
+  transition:
+    top 0.15s ease,
+    font-size 0.15s ease,
+    color 0.15s ease;
+}
+
+.field__input:focus + .field__label,
+.field__input:not(:placeholder-shown) + .field__label {
+  top: -12px;
+  font-size: 12px;
+}
+
+.field__input:focus + .field__label {
+  color: var(--primary);
+}
+
+.field--error .field__input,
+.field--error .field__input:focus {
+  border-color: var(--error);
+}
+
+.field--error .field__label,
+.field--error .field__input:focus + .field__label {
+  color: var(--error);
+}
+
+.field__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--error);
+}
+
+.field__error svg {
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field__label {
+    transition: none;
+  }
+}

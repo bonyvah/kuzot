@@ -1,0 +1,21 @@
+.splash {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.splash svg {
+  animation: splash-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash svg {
+    animation: none;
+  }
+}

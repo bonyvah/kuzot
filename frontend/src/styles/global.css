@@ -1,0 +1,77 @@
+/* Dark-only Material 3 palette, tuned to Google's dark surfaces. */
+:root {
+  --font: Roboto, Arial, sans-serif;
+
+  --bg: #131314;
+  --surface: #1e1f20;
+  --surface-high: #282a2c;
+  --surface-highest: #333537;
+
+  --text: #e3e3e3;
+  --text-secondary: #c4c7c5;
+  --outline: #8e918f;
+  --outline-variant: #444746;
+
+  --primary: #a8c7fa;
+  --on-primary: #062e6f;
+  --primary-container: #004a77;
+  --on-primary-container: #c2e7ff;
+  --error: #f2b8b5;
+
+  /* State layers: overlays laid over a surface on hover / press. */
+  --hover: rgb(227 227 227 / 0.08);
+  --press: rgb(227 227 227 / 0.12);
+  --primary-hover: rgb(168 199 250 / 0.08);
+
+  --radius-card: 28px;
+  --radius-field: 4px;
+  --radius-pill: 100px;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.43;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

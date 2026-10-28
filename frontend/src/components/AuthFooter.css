@@ -1,0 +1,28 @@
+.auth-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 0;
+  font-size: 12px;
+}
+
+.auth-footer__links {
+  display: flex;
+  gap: 4px;
+}
+
+.auth-footer__links a {
+  padding: 8px 16px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.auth-footer__links a:hover {
+  background: var(--hover);
+}
+
+@media (max-width: 600px) {
+  .auth-footer {
+    justify-content: center;
+  }
+}

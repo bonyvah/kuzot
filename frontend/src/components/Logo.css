@@ -1,0 +1,13 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.logo__word {
+  font-size: 22px;
+  line-height: 24px;
+  letter-spacing: -0.2px;
+}

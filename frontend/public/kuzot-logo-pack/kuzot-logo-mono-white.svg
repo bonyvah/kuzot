@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="12 9 136 136" width="512" height="512" role="img" aria-label="kuzot logo, white">
+  <rect x="22" y="24" width="38" height="42" rx="11" fill="#FFFFFF"/>
+  <rect x="100" y="24" width="38" height="42" rx="11" fill="#FFFFFF"/>
+  <rect x="62" y="80" width="36" height="26" rx="8" fill="#FFFFFF"/>
+  <circle cx="48" cy="100" r="30" fill="#FFFFFF"/>
+  <circle cx="112" cy="100" r="30" fill="#FFFFFF"/>
+  <circle cx="48" cy="100" r="15" fill="#1F2430"/>
+  <circle cx="112" cy="100" r="15" fill="#1F2430"/>
+</svg>
