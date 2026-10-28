@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # The refresh token travels only in an httpOnly cookie. Browsers accept
+    # Secure cookies on http://localhost, so this stays on outside of tests.
+    REFRESH_COOKIE_SECURE: bool = True
 
     # ── AWS / LocalStack ────────────────────────────────────────────
     AWS_ENDPOINT_URL: str | None = None   # http://localhost:4566 locally, None in prod

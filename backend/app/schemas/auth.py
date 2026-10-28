@@ -20,10 +20,7 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
+    """The refresh token is not in the body; it is set as an httpOnly cookie."""
+
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
