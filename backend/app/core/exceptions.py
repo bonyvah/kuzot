@@ -42,5 +42,5 @@ class DuplicateURLError(HTTPException):
     def __init__(self) -> None:
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
-            detail="This URL is already being monitored"
+            detail="This competitor already monitors that URL"
         )

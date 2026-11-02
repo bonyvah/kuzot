@@ -3,7 +3,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Index, Integer, String, func
+from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint, func
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,7 +37,7 @@ class MonitoredURL(Base):
     competitor_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("competitors.id", ondelete="CASCADE"), index=True
     )
-    url: Mapped[str] = mapped_column(String(2048), unique=True)
+    url: Mapped[str] = mapped_column(String(2048))
     url_type: Mapped[URLType] = mapped_column(SAEnum(URLType, native_enum=False, length=50))
     # what an OTHER page is, e.g. "LinkedIn" or "App Store page"
     label: Mapped[str | None] = mapped_column(String(100))
@@ -57,6 +57,8 @@ class MonitoredURL(Base):
     )
 
     __table_args__ = (
+        # per competitor: different organizations may watch the same page
+        UniqueConstraint("competitor_id", "url", name="uq_monitored_urls_competitor_url"),
         Index(
             "ix_monitored_urls_polling",
             "is_active",

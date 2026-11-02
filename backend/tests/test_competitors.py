@@ -74,23 +74,32 @@ async def _setup_competitor(client: AsyncClient, email: str) -> tuple[str, str, 
 
 
 @pytest.mark.asyncio
-async def test_duplicate_url_returns_conflict(client: AsyncClient):
+async def test_urls_are_unique_per_competitor(client: AsyncClient):
     ws_id, comp_id, headers = await _setup_competitor(client, "dupurl@example.com")
     url = {"url": "https://acme.example/dup-pricing", "url_type": "pricing"}
 
     first = await client.post(f"/api/v1/competitors/{comp_id}/urls", json=url, headers=headers)
     assert first.status_code == 201, first.text
 
+    # The same competitor can't monitor a page twice...
     again = await client.post(f"/api/v1/competitors/{comp_id}/urls", json=url, headers=headers)
     assert again.status_code == 409
-    assert again.json()["detail"] == "This URL is already being monitored"
-
-    new_comp = await client.post(
+    assert again.json()["detail"] == "This competitor already monitors that URL"
+    twice = await client.post(
         f"/api/v1/workspaces/{ws_id}/competitors",
-        json={"name": "Copycat", "initial_urls": [url]},
+        json={"name": "Twice", "initial_urls": [url, url]},
         headers=headers,
     )
-    assert new_comp.status_code == 409
+    assert twice.status_code == 409
+
+    # ...but another competitor, even in another organization, can
+    other_comp = await client.post(
+        f"/api/v1/workspaces/{ws_id}/competitors", json={"name": "Copycat", "initial_urls": [url]}, headers=headers
+    )
+    assert other_comp.status_code == 201, other_comp.text
+    _, stranger_comp, stranger = await _setup_competitor(client, "dupurl-other@example.com")
+    theirs = await client.post(f"/api/v1/competitors/{stranger_comp}/urls", json=url, headers=stranger)
+    assert theirs.status_code == 201, theirs.text
 
 
 @pytest.mark.asyncio
