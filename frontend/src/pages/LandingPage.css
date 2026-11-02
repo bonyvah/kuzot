@@ -173,24 +173,8 @@
   margin-top: 32px;
 }
 
-/* Product screenshots */
-.shot {
-  margin: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--outline-variant);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
-}
-
-.shot img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.shot--wide {
-  max-width: 1040px;
+.landing__wide {
+  max-width: 880px;
   margin: 0 auto;
 }
 
@@ -281,7 +265,7 @@
   background: var(--surface-high);
 }
 
-.members-shot {
+.members-visual {
   max-width: 920px;
   margin: 56px auto 0;
 }

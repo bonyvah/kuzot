@@ -2,16 +2,16 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import { Logo } from "../components/Logo";
+import {
+  CitationIllustration,
+  HistoryIllustration,
+  MembersIllustration,
+  PagesIllustration,
+  ReportIllustration,
+  SearchIllustration,
+} from "./landing/Illustrations";
 import "./LandingPage.css";
 
-// Screenshots of the real product, tracking a demo bike shop.
-const SHOTS = {
-  report: "/landing/report.jpg",
-  competitor: "/landing/competitor.jpg",
-  history: "/landing/history.jpg",
-  search: "/landing/search.jpg",
-  members: "/landing/members.jpg",
-};
 
 const PAGE_TYPES = [
   { title: "Pricing pages", text: "Price drops, new tiers and discounts, caught the day they ship." },
@@ -24,22 +24,19 @@ const FEATURES = [
     badge: null,
     title: "Scraped on schedule, compared on every run",
     text: "Add the pages you care about and how often to check them. Kuzot fetches each one, renders JavaScript-heavy sites in a real browser when it has to, and keeps only what actually changed.",
-    shot: SHOTS.history,
-    alt: "Scrape history for a competitor page, with a run that detected changed content",
+    visual: <HistoryIllustration />,
   },
   {
     badge: null,
     title: "Search everything competitors have ever said",
     text: "Semantic search finds passages by meaning, not keywords. Filter by competitor, page type or date, and include text that has since been removed to see what changed.",
-    shot: SHOTS.search,
-    alt: "Search results showing a current price and the removed old price",
+    visual: <SearchIllustration />,
   },
   {
     badge: "AI",
     title: "Reports that cite their sources",
     text: "Ask a question in plain words and get a written answer built only from scraped pages. Every claim links to the passage it came from, so you can check it in one click.",
-    shot: SHOTS.report,
-    alt: "An AI report with numbered citations and the competitors it drew on",
+    visual: <CitationIllustration />,
   },
 ];
 
@@ -134,13 +131,15 @@ export function LandingPage() {
                 </Link>
               </div>
             </div>
-            <Shot src={SHOTS.report} alt="A Kuzot report on a competitor's price change, with cited sources" priority />
+            <ReportIllustration />
           </div>
         </section>
 
         <section className="landing__section" id="features" aria-labelledby="watch-title">
           <div className="landing__wrap">
-            <Shot src={SHOTS.competitor} alt="A competitor with its monitored pages" wide />
+            <div className="landing__wide">
+              <PagesIllustration />
+            </div>
             <div className="intro">
               <h2 id="watch-title" className="landing__h2">
                 Every page that matters, watched for you
@@ -170,7 +169,7 @@ export function LandingPage() {
                 </h2>
                 <p className="landing__lead">{f.text}</p>
               </div>
-              <Shot src={f.shot} alt={f.alt} />
+              {f.visual}
             </div>
           </section>
         ))}
@@ -188,8 +187,8 @@ export function LandingPage() {
                 </div>
               ))}
             </div>
-            <div className="members-shot">
-              <Shot src={SHOTS.members} alt="Organization members with owner, admin and member roles" />
+            <div className="members-visual">
+              <MembersIllustration />
             </div>
           </div>
         </section>
@@ -281,13 +280,5 @@ function Faq() {
         ))}
       </div>
     </>
-  );
-}
-
-function Shot({ src, alt, wide, priority }: { src: string; alt: string; wide?: boolean; priority?: boolean }) {
-  return (
-    <figure className={`shot${wide ? " shot--wide" : ""}`}>
-      <img src={src} alt={alt} loading={priority ? "eager" : "lazy"} decoding="async" />
-    </figure>
   );
 }
