@@ -1,3 +1,4 @@
+from typing import cast
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
@@ -184,7 +185,8 @@ async def add_org_member(
                 detail="No Kuzot account uses this email. Ask them to sign up first.",
             )
     else:
-        user_to_add = await user_crud.get_by_id(db, body.user_id)
+        # InviteMemberRequest guarantees user_id is set when email isn't
+        user_to_add = await user_crud.get_by_id(db, cast(UUID, body.user_id))
         if not user_to_add:
             raise HTTPException(status_code=404, detail="User not found")
 
