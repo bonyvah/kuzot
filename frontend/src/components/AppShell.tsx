@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 
+import { useWorkspaces } from "../api/queries";
 import { useAuth, useUser } from "../auth/AuthProvider";
+import { OrgProvider, useOrg } from "../org/OrgProvider";
 import { Logo } from "./Logo";
 import "./AppShell.css";
 
 /** Gmail-style frame: app bar, collapsible nav rail, rounded content panel. */
 export function AppShell() {
+  return (
+    <OrgProvider>
+      <Shell />
+    </OrgProvider>
+  );
+}
+
+function Shell() {
   const [navOpen, setNavOpen] = useState(true);
 
   return (
@@ -35,14 +45,36 @@ export function AppShell() {
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path fill="currentColor" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
           </svg>
-          <span className="nav-item__label">Dashboard</span>
+          <span className="nav-item__label">Workspaces</span>
         </NavLink>
+        <WorkspaceNav />
       </nav>
 
       <main className="shell__main">
         <Outlet />
       </main>
     </div>
+  );
+}
+
+/** Shortcuts to the current organization's workspaces. */
+function WorkspaceNav() {
+  const { current } = useOrg();
+  const { data: workspaces = [] } = useWorkspaces(current?.id);
+  if (!workspaces.length) return null;
+
+  return (
+    <>
+      <div className="nav-heading">{current?.name}</div>
+      {workspaces.map((ws) => (
+        <NavLink key={ws.id} to={`/workspaces/${ws.id}`} className="nav-item" title={ws.name}>
+          <span className="nav-item__dot" aria-hidden="true">
+            {ws.name[0]?.toUpperCase()}
+          </span>
+          <span className="nav-item__label">{ws.name}</span>
+        </NavLink>
+      ))}
+    </>
   );
 }
 

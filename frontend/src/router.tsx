@@ -3,10 +3,12 @@ import { createBrowserRouter } from "react-router";
 import { RedirectIfAuthed, RequireAuth } from "./auth/guards";
 import { AppShell } from "./components/AppShell";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
+import { CompetitorPage } from "./pages/CompetitorPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
+import { WorkspacePage } from "./pages/WorkspacePage";
 
 export const router = createBrowserRouter([
   {
@@ -21,7 +23,11 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <AppShell />,
-        children: [{ index: true, element: <DashboardPage /> }],
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: "workspaces/:workspaceId", element: <WorkspacePage /> },
+          { path: "competitors/:competitorId", element: <CompetitorPage /> },
+        ],
       },
     ],
   },
