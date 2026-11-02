@@ -19,6 +19,11 @@ class URLType(enum.StrEnum):
     BLOG = "blog"
     DOCS = "docs"
     CHANGELOG = "changelog"
+    INSTAGRAM = "instagram"
+    TELEGRAM = "telegram"
+    FACEBOOK = "facebook"
+    X = "x"
+    OTHER = "other"  # described by MonitoredURL.label
 
 
 class MonitoredURL(Base):
@@ -33,7 +38,9 @@ class MonitoredURL(Base):
         ForeignKey("competitors.id", ondelete="CASCADE"), index=True
     )
     url: Mapped[str] = mapped_column(String(2048), unique=True)
-    url_type: Mapped[URLType] = mapped_column(SAEnum(URLType, native_enum=False))
+    url_type: Mapped[URLType] = mapped_column(SAEnum(URLType, native_enum=False, length=50))
+    # what an OTHER page is, e.g. "LinkedIn" or "App Store page"
+    label: Mapped[str | None] = mapped_column(String(100))
     scrape_interval_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
     last_scraped_at: Mapped[datetime | None]
     last_content_hash: Mapped[str | None] = mapped_column(String(64))

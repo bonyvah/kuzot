@@ -17,7 +17,7 @@ from app.db.redis import get_redis
 from app.models.org_member import MemberRole
 from app.models.scrape_job import TriggeredBy
 from app.schemas.common import PaginatedResponse
-from app.schemas.competitor import MonitoredURLPublic
+from app.schemas.competitor import MonitoredURLPublic, MonitoredURLUpdate
 from app.schemas.scrape_job import ScrapeJobCreate, ScrapeJobPublic
 from app.workers.enqueue import enqueue_scrape
 
@@ -67,8 +67,7 @@ async def update_monitored_url(
     current_user: CurrentUser,
     db: DBSession,
     redis: Annotated[Redis, Depends(get_redis)],
-    scrape_interval_minutes: int | None = None,
-    is_active: bool | None = None,
+    body: MonitoredURLUpdate,
 ):
     url_record = await monitored_url_crud.get_by_id(db, url_id)
     if not url_record:
@@ -84,9 +83,10 @@ async def update_monitored_url(
 
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
-    updated_url = await monitored_url_crud.update(
-        db, url_record, scrape_interval_minutes=scrape_interval_minutes, is_active=is_active
-    )
+    try:
+        updated_url = await monitored_url_crud.update(db, url_record, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
     await invalidate_cache_pattern(redis, f"competitor:{competitor.id}:urls")
 

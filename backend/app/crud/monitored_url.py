@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.monitored_url import MonitoredURL
-from app.schemas.competitor import MonitoredURLCreate
+from app.schemas.competitor import MonitoredURLCreate, MonitoredURLUpdate, _check_label
 
 
 class MonitoredURLCRUD:
@@ -28,6 +28,7 @@ class MonitoredURLCRUD:
             competitor_id=competitor_id,
             url=obj_in.url,
             url_type=obj_in.url_type,
+            label=obj_in.label,
             scrape_interval_minutes=obj_in.scrape_interval_minutes,
             is_active=True,
         )
@@ -40,13 +41,20 @@ class MonitoredURLCRUD:
         self,
         db: AsyncSession,
         monitored_url: MonitoredURL,
-        scrape_interval_minutes: int | None = None,
-        is_active: bool | None = None,
+        obj_in: MonitoredURLUpdate,
     ) -> MonitoredURL:
-        if scrape_interval_minutes is not None:
-            monitored_url.scrape_interval_minutes = scrape_interval_minutes
-        if is_active is not None:
-            monitored_url.is_active = is_active
+        """Apply only the fields the client sent (null interval = manual only)."""
+        sent = obj_in.model_fields_set
+        if "scrape_interval_minutes" in sent:
+            monitored_url.scrape_interval_minutes = obj_in.scrape_interval_minutes
+        if obj_in.is_active is not None:
+            monitored_url.is_active = obj_in.is_active
+        if obj_in.url_type is not None or "label" in sent:
+            url_type = obj_in.url_type or monitored_url.url_type
+            monitored_url.url_type = url_type
+            monitored_url.label = _check_label(
+                url_type, obj_in.label if "label" in sent else monitored_url.label
+            )
         await db.commit()
         await db.refresh(monitored_url)
         return monitored_url

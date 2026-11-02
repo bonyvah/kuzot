@@ -47,6 +47,7 @@ class CompetitorCRUD:
                 competitor_id=competitor.id,
                 url=url_in.url,
                 url_type=url_in.url_type,
+                label=url_in.label,
                 scrape_interval_minutes=url_in.scrape_interval_minutes,
                 is_active=True,
             )

@@ -135,3 +135,46 @@ async def test_finished_job_does_not_block_next_trigger(
 
     assert failed.status_code == 503  # job marked FAILED: finished, not in flight
     assert retry.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_page_types_labels_and_intervals(client: AsyncClient):
+    url_id, headers = await _create_url(client, "types@example.com")
+    me = (await client.get("/api/v1/organizations/", headers=headers)).json()[0]
+    ws = (await client.get(f"/api/v1/organizations/{me['id']}/workspaces", headers=headers)).json()[0]
+    comp = (await client.get(f"/api/v1/workspaces/{ws['id']}/competitors", headers=headers)).json()["items"][0]
+    add = f"/api/v1/competitors/{comp['id']}/urls"
+
+    # Daily by default, social types accepted
+    res = await client.post(add, json={"url": "https://t.me/s/acme_news", "url_type": "telegram"}, headers=headers)
+    assert res.status_code == 201, res.text
+    assert res.json()["scrape_interval_minutes"] == 1440
+    assert res.json()["label"] is None
+
+    # "other" needs a label; other types drop one
+    no_label = await client.post(add, json={"url": "https://linkedin.com/company/acme", "url_type": "other"}, headers=headers)
+    assert no_label.status_code == 422
+    other = await client.post(
+        add, json={"url": "https://linkedin.com/company/acme", "url_type": "other", "label": " LinkedIn "}, headers=headers
+    )
+    assert other.json()["label"] == "LinkedIn"
+    dropped = await client.post(add, json={"url": "https://x.com/acme", "url_type": "x", "label": "ignored"}, headers=headers)
+    assert dropped.json()["label"] is None
+
+    # Any interval between 15 minutes and 30 days
+    for minutes, code in [(14, 422), (4320, 201), (43201, 422)]:
+        res = await client.post(
+            add, json={"url": f"https://acme.example/i{minutes}", "scrape_interval_minutes": minutes}, headers=headers
+        )
+        assert res.status_code == code, (minutes, res.text)
+
+    # PATCH takes a JSON body and only changes what is sent
+    patch = f"/api/v1/monitored-urls/{other.json()['id']}"
+    res = await client.patch(patch, json={"scrape_interval_minutes": 4320}, headers=headers)
+    assert res.json()["scrape_interval_minutes"] == 4320 and res.json()["label"] == "LinkedIn"
+    res = await client.patch(patch, json={"scrape_interval_minutes": None}, headers=headers)
+    assert res.json()["scrape_interval_minutes"] is None  # manual only
+    res = await client.patch(patch, json={"url_type": "blog"}, headers=headers)
+    assert res.json()["url_type"] == "blog" and res.json()["label"] is None
+    res = await client.patch(patch, json={"url_type": "other"}, headers=headers)
+    assert res.status_code == 422
