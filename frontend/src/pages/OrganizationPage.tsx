@@ -57,7 +57,7 @@ function OrganizationSettings({ org }: { org: Organization }) {
 
   const me = members.data?.find((m) => m.user_id === user.id);
   const myRank = me ? RANK[me.role] : -1;
-  const isTeam = org.org_type === "team";
+  const isShared = org.org_type === "team";
   const ownerCount = members.data?.filter((m) => m.role === "owner").length ?? 0;
   // After leaving or deleting, fall back to the personal org.
   const goHome = () => {
@@ -78,7 +78,7 @@ function OrganizationSettings({ org }: { org: Organization }) {
         <div className="page__heading">
           <h1 className="page__title">{org.name}</h1>
           <p className="page__subtitle">
-            <Chip tone={isTeam ? "info" : "neutral"}>{isTeam ? "Team" : "Personal"}</Chip>{" "}
+            <Chip tone={isShared ? "info" : "neutral"}>{isShared ? "Shared" : "Personal"}</Chip>{" "}
             <Chip>{org.plan[0].toUpperCase() + org.plan.slice(1)} plan</Chip>
             {me && <> · You are {ROLE_LABEL[me.role].toLowerCase()}</>}
           </p>
@@ -92,14 +92,14 @@ function OrganizationSettings({ org }: { org: Organization }) {
         </div>
       </div>
 
-      {!isTeam && (
+      {!isShared && (
         <div className="blank">
           <h2 className="blank__title">This is your personal organization</h2>
-          <p>Only you can see it. To track competitors with colleagues, create a team from the organization menu.</p>
+          <p>Only you can see it. To track competitors with colleagues, create a shared organization from the organization menu.</p>
         </div>
       )}
 
-      {isTeam && (
+      {isShared && (
         <section className="page__section" aria-labelledby="members-title">
           <div className="page__section-head">
             <h2 id="members-title" className="page__section-title">
@@ -144,7 +144,7 @@ function OrganizationSettings({ org }: { org: Organization }) {
                               value={m.role}
                               aria-label={`Role of ${m.email}`}
                               disabled={setRole.isPending || lastOwner}
-                              title={lastOwner ? "A team needs at least one owner" : undefined}
+                              title={lastOwner ? "An organization needs at least one owner" : undefined}
                               onChange={(e) => setRole.mutate({ userId: m.user_id, role: e.target.value as MemberRole })}
                             >
                               {(Object.keys(ROLE_LABEL) as MemberRole[]).map((r) => (
@@ -192,19 +192,19 @@ function OrganizationSettings({ org }: { org: Organization }) {
           )}
           {setRole.error && <p className="page__error">{errorText(setRole.error)}</p>}
           <p className="page__note org-roles">
-            <b>Members</b> track competitors and generate reports. <b>Admins</b> also add members, rename the team and
-            manage workspaces. <b>Owners</b> also change roles, remove members and delete the team.
+            <b>Members</b> track competitors and generate reports. <b>Admins</b> also add members, rename the organization and
+            manage workspaces. <b>Owners</b> also change roles, remove members and delete the organization.
           </p>
         </section>
       )}
 
-      {isTeam && myRank === RANK.owner && (
+      {isShared && myRank === RANK.owner && (
         <section className="page__section danger-zone" aria-labelledby="danger-title">
           <h2 id="danger-title" className="page__section-title">
-            Delete team
+            Delete organization
           </h2>
           <p className="page__note">
-            Deletes the team with all of its workspaces, competitors, scrape history and reports.
+            Deletes the organization with all of its workspaces, competitors, scrape history and reports.
           </p>
           <Button variant="text" className="btn--danger" onClick={() => setModal({ kind: "delete" })}>
             Delete {org.name}
@@ -223,7 +223,7 @@ function OrganizationSettings({ org }: { org: Organization }) {
       {modal?.kind === "leave" && me && (
         <RemoveMember orgId={org.id} userId={user.id} member={me} onClose={close} onDone={goHome} />
       )}
-      {modal?.kind === "delete" && <DeleteTeam org={org} onClose={close} onDeleted={goHome} />}
+      {modal?.kind === "delete" && <DeleteOrganization org={org} onClose={close} onDeleted={goHome} />}
     </div>
   );
 }
@@ -284,7 +284,7 @@ function AddMemberDialog({
       busy={save.busy}
       error={save.error}
     >
-      <p className="dialog__lead">They need a Kuzot account first. They'll see this team in their organization menu.</p>
+      <p className="dialog__lead">They need a Kuzot account first. They'll see this organization in their organization menu.</p>
       <TextField
         label="Email"
         type="email"
@@ -321,7 +321,7 @@ function RemoveMember({
   const leaving = member.user_id === userId;
   return (
     <ConfirmDialog
-      title={leaving ? "Leave this team?" : "Remove member?"}
+      title={leaving ? "Leave this organization?" : "Remove member?"}
       confirmLabel={leaving ? "Leave" : "Remove"}
       onConfirm={async () => {
         await remove.mutateAsync(member.user_id);
@@ -331,17 +331,17 @@ function RemoveMember({
     >
       {leaving
         ? "You'll lose access to its workspaces and reports. An owner can add you back."
-        : `${member.full_name || member.email} will lose access to this team's workspaces and reports.`}
+        : `${member.full_name || member.email} will lose access to this organization's workspaces and reports.`}
     </ConfirmDialog>
   );
 }
 
-function DeleteTeam({ org, onClose, onDeleted }: { org: Organization; onClose: () => void; onDeleted: () => void }) {
+function DeleteOrganization({ org, onClose, onDeleted }: { org: Organization; onClose: () => void; onDeleted: () => void }) {
   const remove = useDeleteOrganization(org.id);
   return (
     <ConfirmDialog
       title={`Delete ${org.name}?`}
-      confirmLabel="Delete team"
+      confirmLabel="Delete organization"
       onConfirm={async () => {
         await remove.mutateAsync();
         onDeleted();

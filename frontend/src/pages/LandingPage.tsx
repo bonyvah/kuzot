@@ -45,8 +45,8 @@ const FEATURES = [
 
 const TRUST = [
   {
-    title: "Each team's data stays its own",
-    text: "Every organization gets its own search index. Nothing one team tracks can surface in another team's search results or reports.",
+    title: "Each organization's data stays its own",
+    text: "Every organization gets its own search index. Nothing one organization tracks can surface in another's search results or reports.",
   },
   {
     title: "Sessions that scripts can't steal",
@@ -57,7 +57,7 @@ const TRUST = [
     text: "Reports are written only from retrieved passages. If the pages don't answer your question, the report says so instead of guessing.",
   },
   {
-    title: "Roles for real teams",
+    title: "Roles for every member",
     text: "Owners, admins and members. Invite colleagues by email, share workspaces, and hand over ownership safely.",
   },
 ];
@@ -86,8 +86,8 @@ const FAQ = [
     a: "Only from passages scraped from the competitor pages you track. Each report lists its sources and marks which ones it cited.",
   },
   {
-    q: "Can I use Kuzot with my team?",
-    a: "Yes. Create a team from the organization menu, add colleagues by email and give them a role. Everyone in the team sees the same workspaces and reports.",
+    q: "Can I use Kuzot with colleagues?",
+    a: "Yes. Create a shared organization from the organization menu, add colleagues by email and give them a role. Everyone in it sees the same workspaces and reports.",
   },
 ];
 
@@ -178,7 +178,7 @@ export function LandingPage() {
         <section className="landing__section landing__section--tint" aria-labelledby="trust-title">
           <div className="landing__wrap">
             <h2 id="trust-title" className="landing__h2 landing__center">
-              Built for teams that share sensitive research
+              Built for organizations that share sensitive research
             </h2>
             <div className="cards">
               {TRUST.map((t) => (
@@ -188,8 +188,8 @@ export function LandingPage() {
                 </div>
               ))}
             </div>
-            <div className="team">
-              <Shot src={SHOTS.members} alt="Team members with owner, admin and member roles" />
+            <div className="members-shot">
+              <Shot src={SHOTS.members} alt="Organization members with owner, admin and member roles" />
             </div>
           </div>
         </section>

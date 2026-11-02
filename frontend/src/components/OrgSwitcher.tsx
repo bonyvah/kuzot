@@ -9,7 +9,7 @@ import { TextField } from "./TextField";
 import { useSave } from "./useSave";
 import "./OrgSwitcher.css";
 
-/** App-bar menu: switch organization, create a team, open org settings. */
+/** App-bar menu: switch organization, create one, open its settings. */
 export function OrgSwitcher() {
   const { orgs, current, select } = useOrg();
   const navigate = useNavigate();
@@ -70,7 +70,7 @@ export function OrgSwitcher() {
               <Avatar name={o.name} avatar={o} />
               <span className="orgs__item-text">
                 <span className="orgs__item-name">{o.name}</span>
-                <span className="orgs__item-type">{o.org_type === "personal" ? "Personal" : "Team"}</span>
+                <span className="orgs__item-type">{o.org_type === "personal" ? "Personal" : "Shared"}</span>
               </span>
               {o.id === current.id && (
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -106,7 +106,7 @@ export function OrgSwitcher() {
         </div>
       )}
       {creating && (
-        <CreateTeamDialog
+        <CreateOrganizationDialog
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false);
@@ -119,7 +119,7 @@ export function OrgSwitcher() {
   );
 }
 
-function CreateTeamDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+function CreateOrganizationDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const create = useCreateOrganization();
   const [name, setName] = useState("");
   const save = useSave(async (value: string) => {
@@ -130,18 +130,18 @@ function CreateTeamDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   return (
     <Dialog
       open
-      title="Create a team"
+      title="Create an organization"
       confirmLabel="Create"
       onClose={onClose}
-      onSubmit={() => (name.trim() ? save.run(name.trim()) : save.setError("Enter a team name"))}
+      onSubmit={() => (name.trim() ? save.run(name.trim()) : save.setError("Enter a name"))}
       busy={save.busy}
       error={save.error}
     >
       <p className="dialog__lead">
-        A team is a shared organization: invite colleagues and track competitors together. It starts with a “General”
+        A shared organization lets you invite colleagues and track competitors together. It starts with a “General”
         workspace.
       </p>
-      <TextField label="Team name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={255} />
+      <TextField label="Organization name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={255} />
     </Dialog>
   );
 }
