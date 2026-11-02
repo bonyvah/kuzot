@@ -1,6 +1,7 @@
 from functools import cache
 
 from pymongo import MongoClient
+from redis import Redis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -17,3 +18,8 @@ SyncSession = sessionmaker(bind=sync_engine, expire_on_commit=False)
 @cache
 def get_mongo_db():
     return MongoClient(settings.MONGO_URI)[settings.MONGO_DB_NAME]
+
+
+@cache
+def get_redis() -> Redis:
+    return Redis.from_url(settings.REDIS_URL)

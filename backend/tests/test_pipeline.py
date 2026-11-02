@@ -19,8 +19,10 @@ from app.models import (
     Workspace,
 )
 from app.scraping.fetcher import FetchError, FetchResult, TransientFetchError
+from app.scraping.robots import RobotsUnreachable
 from app.workers import pipeline
 from app.workers.pipeline import BrowserRequired, run_scrape, utcnow
+from app.workers.pipeline import robots_allows as real_robots_allows
 from app.workers.tasks import scraping
 from app.workers.tasks.browser import scrape_url_browser
 from app.workers.tasks.scraping import dispatch_due_scrapes, scrape_url
@@ -53,6 +55,12 @@ class FakeMongo:
     def __init__(self):
         self.page_snapshots = FakeCollection()
         self.change_events = FakeCollection()
+
+
+@pytest.fixture(autouse=True)
+def robots_allow_all(monkeypatch):
+    """Pipeline tests are about scraping; robots.txt has its own tests below."""
+    monkeypatch.setattr(pipeline, "robots_allows", lambda url: True)
 
 
 @pytest.fixture
@@ -500,3 +508,81 @@ def test_dispatch_returns_count(sync_session, delayed, make_url):
     make_url()
     make_url()
     assert dispatch_due_scrapes() >= 2
+
+
+# ── robots.txt ────────────────────────────────────────────────────
+
+
+def test_robots_disallow_fails_job_without_fetching(
+    monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
+):
+    fetched = []
+    monkeypatch.setattr(pipeline, "robots_allows", lambda url: False)
+    monkeypatch.setattr(pipeline, "fetch_html", lambda url: fetched.append(url))
+    job_id = make_job(make_url())
+
+    assert run_scrape(job_id, None, use_browser=False) == {"status": "blocked"}
+
+    assert fetched == []
+    job = get_job(sync_session, job_id)
+    assert job.status == ScrapeJobStatus.FAILED
+    assert "robots.txt" in job.error_message
+    assert mongo.page_snapshots.docs == []
+    assert sent_tasks == []
+
+
+def test_unreachable_robots_fails_job_without_fetching(
+    monkeypatch, sync_session, mongo, make_url, make_job
+):
+    def unreachable(url):
+        raise RobotsUnreachable("HTTP 503")
+
+    fetched = []
+    monkeypatch.setattr(pipeline, "robots_allows", unreachable)
+    monkeypatch.setattr(pipeline, "fetch_html", lambda url: fetched.append(url))
+    job_id = make_job(make_url())
+
+    result = run_scrape(job_id, None, use_browser=False)
+
+    assert result["status"] == "failed"
+    assert fetched == []
+    assert "robots.txt (HTTP 503)" in get_job(sync_session, job_id).error_message
+
+
+class FakeRedis:
+    def __init__(self, broken=False):
+        self.store: dict[str, bytes] = {}
+        self.broken = broken
+
+    def get(self, key):
+        if self.broken:
+            raise pipeline.RedisError("down")
+        return self.store.get(key)
+
+    def setex(self, key, ttl, value):
+        if self.broken:
+            raise pipeline.RedisError("down")
+        self.store[key] = value.encode()
+
+
+ROBOTS = "User-agent: *\nDisallow: /private\n"
+
+
+def test_robots_allows_fetches_once_then_uses_cache(monkeypatch):
+    redis = FakeRedis()
+    fetches = []
+    monkeypatch.setattr(pipeline, "get_redis", lambda: redis)
+    monkeypatch.setattr(
+        pipeline, "fetch_robots_txt", lambda url: fetches.append(url) or ROBOTS
+    )
+    assert real_robots_allows("https://acme.com/pricing") is True
+    assert real_robots_allows("https://acme.com/private/x") is False
+
+    assert len(fetches) == 1  # second call per site comes from Redis
+    assert "robots:https://acme.com/robots.txt" in redis.store
+
+
+def test_robots_allows_works_when_redis_is_down(monkeypatch):
+    monkeypatch.setattr(pipeline, "get_redis", lambda: FakeRedis(broken=True))
+    monkeypatch.setattr(pipeline, "fetch_robots_txt", lambda url: ROBOTS)
+    assert real_robots_allows("https://acme.com/private/x") is False

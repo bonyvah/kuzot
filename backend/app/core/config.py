@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSIONS: int = 1536      # must match the model and the index
     OPENAI_REPORT_MODEL: str = "gpt-5.4-mini"
 
+    # ── Scraping ────────────────────────────────────────────────────
+    # public page explaining the crawler; goes in its User-Agent so site
+    # owners can see who we are and how to block us
+    BOT_INFO_URL: str = "https://kuzot.app/bot"
+
     # ── Auth (JWT) ──────────────────────────────────────────────────
     JWT_SECRET_KEY: str
     JWT_REFRESH_SECRET_KEY: str

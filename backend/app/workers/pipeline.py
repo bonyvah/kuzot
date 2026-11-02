@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+from redis.exceptions import RedisError
+
 from app.models import MonitoredURL, ScrapeJob, ScrapeJobStatus
 from app.scraping.browser import fetch_rendered
 from app.scraping.extractor import (
@@ -11,8 +13,17 @@ from app.scraping.extractor import (
 )
 from app.scraping.fetcher import FetchError, TransientFetchError, fetch_html
 from app.scraping.hashing import content_hash, has_changed
+from app.scraping.robots import (
+    RobotsUnreachable,
+    fetch_robots_txt,
+    is_allowed,
+    robots_url,
+)
 from app.workers.celery_app import celery_app
-from app.workers.db import SyncSession, get_mongo_db
+from app.workers.db import SyncSession, get_mongo_db, get_redis
+
+ROBOTS_TTL_SECONDS = 24 * 60 * 60  # how long a site's robots.txt is trusted
+ROBOTS_BLOCKED = "Blocked by the site's robots.txt, so it was not scraped"
 
 
 class BrowserRequired(Exception):
@@ -22,6 +33,26 @@ class BrowserRequired(Exception):
 def utcnow() -> datetime:
     # our columns are TIMESTAMP WITHOUT TIME ZONE, so store naive UTC
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def robots_allows(url: str) -> bool:
+    """Check robots.txt, cached in Redis per site. Raises RobotsUnreachable."""
+    key = f"robots:{robots_url(url)}"
+    redis = get_redis()
+    try:
+        cached = redis.get(key)
+    except RedisError:
+        cached = None  # the cache is an optimization: fetch it instead
+    if cached is not None:
+        return is_allowed(cached.decode("utf-8"), url)
+
+    # unreachable isn't cached, so the next scheduled run asks again
+    robots_txt = fetch_robots_txt(url)
+    try:
+        redis.setex(key, ROBOTS_TTL_SECONDS, robots_txt)
+    except RedisError:
+        pass
+    return is_allowed(robots_txt, url)
 
 
 def _fail(job_id: UUID, message: str) -> None:
@@ -55,6 +86,16 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
         db.commit()
 
     # 2. network + CPU work, no DB connection held
+    try:
+        allowed = robots_allows(url)
+    except RobotsUnreachable as exc:
+        message = f"Couldn't read robots.txt ({exc}), so it was not scraped"
+        _fail(job_uuid, message)
+        return {"status": "failed", "error": message}
+    if not allowed:
+        _fail(job_uuid, ROBOTS_BLOCKED)
+        return {"status": "blocked"}
+
     fetch = fetch_rendered if use_browser else fetch_html
     try:
         result = fetch(url)

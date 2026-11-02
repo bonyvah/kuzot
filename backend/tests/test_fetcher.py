@@ -59,7 +59,7 @@ def test_sends_language_and_user_agent_headers(monkeypatch):
     use_handler(monkeypatch, handler)
     fetch_html("https://example.com/")
     assert "ru" in seen["accept-language"]
-    assert "Mozilla" in seen["user-agent"]
+    assert seen["user-agent"].startswith("KuzotBot/")
 
 
 @pytest.mark.parametrize("status", [403, 404])

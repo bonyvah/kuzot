@@ -1,10 +1,8 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from functools import cache
 
 from bson import ObjectId
-from redis import Redis
 from redis.exceptions import LockError
 from sqlalchemy import select
 
@@ -13,7 +11,7 @@ from app.embedding import vector_store
 from app.embedding.chunking import chunk_units, snapshot_units
 from app.embedding.embedder import embed_texts
 from app.models import Competitor, MonitoredURL, Workspace
-from app.workers.db import SyncSession, get_mongo_db
+from app.workers.db import SyncSession, get_mongo_db, get_redis
 from app.workers.pipeline import utcnow
 
 # longer than any real embedding run; only matters if a worker dies holding it
@@ -26,11 +24,6 @@ STALE_AFTER = timedelta(minutes=30)
 
 class URLBusy(Exception):
     """Another worker is embedding this URL right now: try again shortly."""
-
-
-@cache
-def get_redis() -> Redis:
-    return Redis.from_url(settings.REDIS_URL)
 
 
 @contextmanager
