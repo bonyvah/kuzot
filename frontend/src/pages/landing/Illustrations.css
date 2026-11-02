@@ -203,27 +203,16 @@
   margin-bottom: 20px;
 }
 
+.ill-head > svg {
+  flex: none;
+}
+
 .ill-head > div {
   flex: 1;
   min-width: 0;
 }
 
-.ill-logo {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: var(--primary-container);
-  color: var(--on-primary-container);
-  font-size: 22px;
-  font-weight: 500;
-}
 
-.ill-logo--emoji {
-  background: var(--surface-highest);
-}
 
 .ill-btn {
   padding: 8px 18px;
@@ -270,16 +259,6 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
-.ill-avatar {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--primary-container);
-  color: var(--on-primary-container);
-  font-weight: 500;
-}
 
 /* History */
 .ill-timeline {

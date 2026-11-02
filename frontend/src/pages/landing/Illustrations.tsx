@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { BrightdeskLogo, Portrait, ResearchLogo, type Person } from "./Marks";
 import "./Illustrations.css";
 
 // Simplified product views for the landing page: just the elements a
@@ -82,7 +83,7 @@ export function PagesIllustration() {
   return (
     <Frame label="A competitor with four monitored pages, two of them changed" className="ill--pages">
       <div className="ill-head">
-        <span className="ill-logo">B</span>
+        <BrightdeskLogo />
         <div>
           <p className="ill-title">Brightdesk</p>
           <p className="ill-muted">4 pages monitored</p>
@@ -173,15 +174,15 @@ export function SearchIllustration() {
 
 /** Members of a shared organization and their roles. */
 export function MembersIllustration() {
-  const people: [string, string, "Owner" | "Admin" | "Member"][] = [
-    ["Aida Sultanova", "aida@company.com", "Owner"],
-    ["Timur Asanov", "timur@company.com", "Admin"],
-    ["Nurlan Bekov", "nurlan@company.com", "Member"],
+  const people: [Person, string, string, "Owner" | "Admin" | "Member"][] = [
+    ["aida", "Aida Sultanova", "aida@company.com", "Owner"],
+    ["timur", "Timur Asanov", "timur@company.com", "Admin"],
+    ["nurlan", "Nurlan Bekov", "nurlan@company.com", "Member"],
   ];
   return (
     <Frame label="Three organization members with owner, admin and member roles" className="ill--members">
       <div className="ill-head">
-        <span className="ill-logo ill-logo--emoji">🚀</span>
+        <ResearchLogo />
         <div>
           <p className="ill-title">Market Research</p>
           <p className="ill-muted">Shared organization · 3 members</p>
@@ -189,9 +190,9 @@ export function MembersIllustration() {
         <span className="ill-btn">Add member</span>
       </div>
       <ul className="ill-rows">
-        {people.map(([name, email, role]) => (
+        {people.map(([person, name, email, role]) => (
           <li key={email} className="ill-row ill-row--person">
-            <span className="ill-avatar">{name[0]}</span>
+            <Portrait person={person} />
             <span>
               <b>{name}</b>
               <span className="ill-muted ill-block">{email}</span>
