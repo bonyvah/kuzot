@@ -371,3 +371,14 @@ button.head-avatar:hover::after,
 button.head-avatar:focus-visible::after {
   opacity: 1;
 }
+
+/* Feeds read best in a narrower column. */
+.page--feed {
+  max-width: 860px;
+}
+
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

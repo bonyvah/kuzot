@@ -238,3 +238,62 @@ export const intelligenceApi = {
     api<Page<ReportSummary>>(`/workspaces/${workspaceId}/reports?page=${page}&size=20`),
   report: (id: string) => api<Report>(`/reports/${id}`),
 };
+
+// ── Insights ─────────────────────────────────────────────────────────────────
+
+export interface Insight {
+  id: string;
+  org_id: string;
+  workspace_id: string;
+  workspace_name: string;
+  competitor_id: string;
+  competitor_name: string;
+  monitored_url_id: string;
+  url: string;
+  url_type: UrlType;
+  label: string | null;
+  detected_at: string;
+  headline: string;
+  /** "pending": the AI headline isn't written yet and `headline` is a fallback. */
+  headline_status: "pending" | "done" | "failed";
+  /** Changed lines with a little context, in hunks; empty for older insights. */
+  diff: { op: "context" | "removed" | "added"; text: string }[][];
+  added: string[];
+  removed: string[];
+  added_count: number;
+  removed_count: number;
+}
+
+export interface InsightFeedPage {
+  items: Insight[];
+  next_cursor: string | null;
+}
+
+/** Whose insights: a whole organization, one workspace or one competitor. */
+export type InsightScope =
+  | { kind: "organization"; id: string }
+  | { kind: "workspace"; id: string }
+  | { kind: "competitor"; id: string };
+
+export interface InsightFilters {
+  workspaceId?: string;
+  competitorId?: string;
+  urlType?: UrlType;
+}
+
+const SCOPE_PATH: Record<InsightScope["kind"], string> = {
+  organization: "organizations",
+  workspace: "workspaces",
+  competitor: "competitors",
+};
+
+export const insightsApi = {
+  feed: (scope: InsightScope, filters: InsightFilters, cursor: string | null) => {
+    const params = new URLSearchParams({ limit: "20" });
+    if (cursor) params.set("cursor", cursor);
+    if (filters.workspaceId) params.set("workspace_id", filters.workspaceId);
+    if (filters.competitorId) params.set("competitor_id", filters.competitorId);
+    if (filters.urlType) params.set("url_type", filters.urlType);
+    return api<InsightFeedPage>(`/${SCOPE_PATH[scope.kind]}/${scope.id}/insights?${params}`);
+  },
+};

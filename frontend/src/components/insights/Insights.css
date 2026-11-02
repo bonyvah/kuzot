@@ -1,0 +1,168 @@
+.feed__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.feed__filters select {
+  height: 36px;
+  padding: 0 10px;
+  background: var(--surface-high);
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.feed__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feed__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.insight {
+  padding: 18px 20px;
+  background: var(--surface-high);
+  border-radius: 16px;
+}
+
+.insight__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  font-size: 13px;
+}
+
+.insight__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 500;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.insight__who:hover,
+.insight__ws:hover {
+  text-decoration: underline;
+}
+
+.insight__ws {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.insight__time {
+  margin-left: auto;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.insight__headline {
+  margin: 12px 0 10px;
+  font-size: 18px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.insight__headline--pending {
+  color: var(--text-secondary);
+}
+
+.insight__diff {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insight__hunk {
+  padding: 6px 0;
+  background: var(--bg);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.insight__line {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  margin: 0;
+  padding: 3px 12px 3px 4px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.insight__line--context {
+  color: var(--text-secondary);
+}
+
+.insight__line--removed {
+  background: rgb(242 184 181 / 0.1);
+  color: var(--text-secondary);
+}
+
+.insight__line--removed span:last-child {
+  text-decoration: line-through;
+  text-decoration-color: rgb(242 184 181 / 0.6);
+}
+
+.insight__line--added {
+  background: rgb(196 238 208 / 0.1);
+}
+
+.insight__sign {
+  font-weight: 500;
+  text-align: center;
+}
+
+.insight__line--removed .insight__sign {
+  color: var(--error);
+}
+
+.insight__line--added .insight__sign {
+  color: #8fd6a3;
+}
+
+.insight__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.insight__url {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insight__more {
+  margin-left: auto;
+  padding: 4px 8px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.insight__more:hover {
+  background: var(--primary-hover);
+}
+

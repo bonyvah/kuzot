@@ -57,7 +57,7 @@ export function CompetitorPage() {
   return (
     <div className="page">
       <nav className="page__crumbs" aria-label="Breadcrumb">
-        <Link to="/">Workspaces</Link>
+        <Link to="/workspaces">Workspaces</Link>
         <span aria-hidden="true">›</span>
         <Link to={`/workspaces/${c.workspace_id}`}>{workspace.data?.name ?? "Workspace"}</Link>
         <span aria-hidden="true">›</span>
@@ -149,7 +149,7 @@ export function CompetitorPage() {
           workspaceId={c.workspace_id}
           name={c.name}
           onClose={close}
-          onDeleted={() => navigate(`/workspaces/${c.workspace_id}`)}
+          onDeleted={() => navigate(`/workspaces/${c.workspace_id}/competitors`)}
         />
       )}
       {modal?.kind === "add-url" && <AddUrl competitorId={c.id} onClose={close} onAdded={selectUrl} />}

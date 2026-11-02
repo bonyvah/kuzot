@@ -46,6 +46,12 @@ function Shell() {
       <nav className="shell__nav" aria-label="Main">
         <NavLink to="/" end className="nav-item">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path fill="currentColor" d="M7 2v11h3v9l7-12h-4l4-8z" />
+          </svg>
+          <span className="nav-item__label">Insights</span>
+        </NavLink>
+        <NavLink to="/workspaces" end className="nav-item">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path fill="currentColor" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
           </svg>
           <span className="nav-item__label">Workspaces</span>

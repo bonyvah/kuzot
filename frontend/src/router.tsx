@@ -4,12 +4,13 @@ import { RedirectIfAuthed, RequireAuth } from "./auth/guards";
 import { AppShell } from "./components/AppShell";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { CompetitorPage } from "./pages/CompetitorPage";
-import { DashboardPage } from "./pages/DashboardPage";
+import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { OrganizationPage } from "./pages/OrganizationPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
-import { WorkspaceCompetitors, WorkspaceLayout } from "./pages/WorkspacePage";
+import { WorkspaceCompetitors, WorkspaceInsights, WorkspaceLayout } from "./pages/WorkspacePage";
+import { WorkspacesPage } from "./pages/WorkspacesPage";
 import { ReportPage } from "./pages/ReportPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SearchPage } from "./pages/SearchPage";
@@ -28,12 +29,14 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <DashboardPage /> },
+          { index: true, element: <HomePage /> },
+          { path: "workspaces", element: <WorkspacesPage /> },
           {
             path: "workspaces/:workspaceId",
             element: <WorkspaceLayout />,
             children: [
-              { index: true, element: <WorkspaceCompetitors /> },
+              { index: true, element: <WorkspaceInsights /> },
+              { path: "competitors", element: <WorkspaceCompetitors /> },
               { path: "search", element: <SearchPage /> },
               { path: "reports", element: <ReportsPage /> },
             ],

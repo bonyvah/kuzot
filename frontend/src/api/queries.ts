@@ -1,8 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  insightsApi,
   intelligenceApi,
   monitoringApi,
+  type InsightFilters,
+  type InsightScope,
   type CompetitorInput,
   type AvatarOwner,
   type JobStatus,
@@ -122,6 +125,7 @@ export function useCompetitors(workspaceId: string) {
   return useQuery({
     queryKey: keys.competitors(workspaceId),
     queryFn: () => monitoringApi.competitors(workspaceId),
+    enabled: !!workspaceId,
   });
 }
 
@@ -270,5 +274,18 @@ export function useCreateReport(workspaceId: string) {
       qc.setQueryData(intelKeys.report(report.id), report);
       return qc.invalidateQueries({ queryKey: intelKeys.reports(workspaceId) });
     },
+  });
+}
+
+// New changes are found by scheduled scrapes at any time; a minute is fresh enough.
+const FEED_POLL_MS = 60_000;
+
+export function useInsightFeed(scope: InsightScope, filters: InsightFilters) {
+  return useInfiniteQuery({
+    queryKey: ["insights", scope.kind, scope.id, filters],
+    queryFn: ({ pageParam }) => insightsApi.feed(scope, filters, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+    refetchInterval: FEED_POLL_MS,
   });
 }

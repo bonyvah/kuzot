@@ -17,6 +17,7 @@ import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { CompetitorDialog } from "../components/CompetitorDialog";
 import { HeadAvatar } from "../components/HeadAvatar";
+import { InsightFeed } from "../components/insights/InsightFeed";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { WorkspaceDialog } from "../components/WorkspaceDialog";
 import { hostname, timeAgo } from "../format";
@@ -44,7 +45,7 @@ export function WorkspaceLayout() {
   return (
     <div className="page">
       <nav className="page__crumbs" aria-label="Breadcrumb">
-        <Link to="/">Workspaces</Link>
+        <Link to="/workspaces">Workspaces</Link>
         <span aria-hidden="true">›</span>
         <span aria-current="page">{ws.name}</span>
       </nav>
@@ -66,6 +67,9 @@ export function WorkspaceLayout() {
 
       <nav className="tabs" aria-label="Workspace sections">
         <NavLink to={base} end className="tabs__tab">
+          Insights
+        </NavLink>
+        <NavLink to={`${base}/competitors`} className="tabs__tab">
           Competitors
         </NavLink>
         <NavLink to={`${base}/search`} className="tabs__tab">
@@ -81,7 +85,7 @@ export function WorkspaceLayout() {
       {modal === "edit" && <EditWorkspace id={ws.id} initial={ws} onClose={close} />}
       {modal === "avatar" && <AvatarDialog kind="workspace" id={ws.id} name={ws.name} avatar={ws} onClose={close} />}
       {modal === "delete" && (
-        <DeleteWorkspace id={ws.id} orgId={ws.org_id} name={ws.name} onClose={close} onDeleted={() => navigate("/")} />
+        <DeleteWorkspace id={ws.id} orgId={ws.org_id} name={ws.name} onClose={close} onDeleted={() => navigate("/workspaces")} />
       )}
     </div>
   );
@@ -89,6 +93,23 @@ export function WorkspaceLayout() {
 
 /** The workspace the surrounding <WorkspaceLayout> loaded. */
 export const useCurrentWorkspace = () => useOutletContext<Workspace>();
+
+/** Insights tab (default): what changed across this workspace's competitors. */
+export function WorkspaceInsights() {
+  const ws = useCurrentWorkspace();
+  return (
+    <div className="page__section">
+      <InsightFeed
+        scope={{ kind: "workspace", id: ws.id }}
+        emptyAction={
+          <Link to={`/workspaces/${ws.id}/competitors`} className="btn btn--filled btn-link">
+            Add competitors
+          </Link>
+        }
+      />
+    </div>
+  );
+}
 
 /** Competitors tab: the workspace's competitors and how fresh their data is. */
 export function WorkspaceCompetitors() {

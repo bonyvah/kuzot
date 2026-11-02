@@ -10,8 +10,8 @@ import { formatDate } from "../format";
 import { useOrg } from "../org/OrgProvider";
 import "./Page.css";
 
-/** Home: the current organization's workspaces. */
-export function DashboardPage() {
+/** The current organization's workspaces. */
+export function WorkspacesPage() {
   const { current, isLoading, error } = useOrg();
   const workspaces = useWorkspaces(current?.id);
   const [creating, setCreating] = useState(false);

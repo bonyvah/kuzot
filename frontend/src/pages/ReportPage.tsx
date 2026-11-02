@@ -28,7 +28,7 @@ export function ReportPage() {
   return (
     <div className="page">
       <nav className="page__crumbs" aria-label="Breadcrumb">
-        <Link to="/">Workspaces</Link>
+        <Link to="/workspaces">Workspaces</Link>
         <span aria-hidden="true">›</span>
         <Link to={base}>{workspace.data?.name ?? "Workspace"}</Link>
         <span aria-hidden="true">›</span>
