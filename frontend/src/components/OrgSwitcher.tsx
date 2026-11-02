@@ -138,9 +138,9 @@ function CreateOrganizationDialog({ onClose, onCreated }: { onClose: () => void;
       error={save.error}
     >
       <p className="dialog__lead">
-        A shared organization lets you invite colleagues and track competitors together. It starts with a “General”
-        workspace.
+        A shared organization lets you invite colleagues and track competitors together.
       </p>
+      <br />
       <TextField label="Organization name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={255} />
     </Dialog>
   );
