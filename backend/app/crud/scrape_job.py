@@ -35,6 +35,24 @@ class ScrapeJobCRUD:
         )
         return list(result.scalars().all()), total
 
+    async def list_by_competitor(
+        self,
+        db: AsyncSession,
+        competitor_id: UUID,
+        url_id: UUID | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[ScrapeJob], int]:
+        """Jobs for all of a competitor's pages (or just one), newest first."""
+        where = [MonitoredURL.competitor_id == competitor_id]
+        if url_id is not None:
+            where.append(ScrapeJob.monitored_url_id == url_id)
+        base = select(ScrapeJob).join(MonitoredURL, MonitoredURL.id == ScrapeJob.monitored_url_id).where(*where)
+
+        total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+        result = await db.execute(base.order_by(ScrapeJob.created_at.desc()).offset(skip).limit(limit))
+        return list(result.scalars().all()), total
+
     async def lock_url_and_get_active(
         self, db: AsyncSession, url_id: UUID
     ) -> ScrapeJob | None:

@@ -178,3 +178,27 @@ async def test_page_types_labels_and_intervals(client: AsyncClient):
     assert res.json()["url_type"] == "blog" and res.json()["label"] is None
     res = await client.patch(patch, json={"url_type": "other"}, headers=headers)
     assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_competitor_history_spans_its_pages(client: AsyncClient, enqueued):
+    url_id, headers = await _create_url(client, "history@example.com")
+    org = (await client.get("/api/v1/organizations/", headers=headers)).json()[0]
+    ws = (await client.get(f"/api/v1/organizations/{org['id']}/workspaces", headers=headers)).json()[0]
+    comp = (await client.get(f"/api/v1/workspaces/{ws['id']}/competitors", headers=headers)).json()["items"][0]
+    other = await client.post(
+        f"/api/v1/competitors/{comp['id']}/urls", json={"url": "https://acme.com/history-blog", "url_type": "blog"}, headers=headers
+    )
+    for uid in (url_id, other.json()["id"], url_id):
+        assert (await client.post(f"/api/v1/monitored-urls/{uid}/trigger", headers=headers)).status_code in (201, 409)
+
+    history = f"/api/v1/competitors/{comp['id']}/jobs"
+    all_jobs = (await client.get(history, headers=headers)).json()
+    assert {j["monitored_url_id"] for j in all_jobs["items"]} == {url_id, other.json()["id"]}
+    one = (await client.get(history, params={"url_id": other.json()["id"]}, headers=headers)).json()
+    assert one["total"] == 1
+
+    stranger = await client.post("/api/v1/auth/register", json={"email": "history-x@example.com", "password": "Password123!"})
+    login = await client.post("/api/v1/auth/login", json={"email": "history-x@example.com", "password": "Password123!"})
+    denied = await client.get(history, headers={"Authorization": f"Bearer {login.json()['access_token']}"})
+    assert stranger.status_code == 201 and denied.status_code == 403

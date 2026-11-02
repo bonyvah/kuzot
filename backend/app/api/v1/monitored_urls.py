@@ -181,3 +181,37 @@ async def list_url_scrape_jobs(
         size=size,
         pages=pages,
     )
+
+@router.get(
+    "/competitors/{competitor_id}/jobs",
+    response_model=PaginatedResponse[ScrapeJobPublic],
+)
+async def list_competitor_scrape_jobs(
+    competitor_id: UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+    url_id: UUID | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+):
+    """Scrape history across all of a competitor's pages, optionally one page."""
+    competitor = await competitor_crud.get_by_id(db, competitor_id)
+    if not competitor:
+        raise CompetitorNotFoundError(str(competitor_id))
+
+    workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
+
+    jobs, total = await scrape_job_crud.list_by_competitor(
+        db, competitor_id, url_id=url_id, skip=(page - 1) * size, limit=size
+    )
+    return PaginatedResponse[ScrapeJobPublic](
+        items=[ScrapeJobPublic.model_validate(job) for job in jobs],
+        total=total,
+        page=page,
+        size=size,
+        pages=math.ceil(total / size) if total > 0 else 1,
+    )
