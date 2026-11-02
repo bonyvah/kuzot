@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  intelligenceApi,
   monitoringApi,
   type CompetitorInput,
   type JobStatus,
@@ -152,5 +153,41 @@ export function useTriggerScrape(competitorId: string) {
         qc.invalidateQueries({ queryKey: keys.jobs(job.monitored_url_id) }),
         qc.invalidateQueries({ queryKey: keys.competitor(competitorId) }),
       ]),
+  });
+}
+
+export const intelKeys = {
+  reports: (workspaceId: string) => ["workspaces", workspaceId, "reports"] as const,
+  report: (id: string) => ["reports", id] as const,
+};
+
+export function useSearch(workspaceId: string) {
+  return useMutation({
+    mutationFn: (body: Parameters<typeof intelligenceApi.search>[1]) => intelligenceApi.search(workspaceId, body),
+  });
+}
+
+export function useReports(workspaceId: string, page: number) {
+  return useQuery({
+    queryKey: [...intelKeys.reports(workspaceId), page],
+    queryFn: () => intelligenceApi.reports(workspaceId, page),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useReport(id: string) {
+  // Reports never change once written.
+  return useQuery({ queryKey: intelKeys.report(id), queryFn: () => intelligenceApi.report(id), staleTime: Infinity });
+}
+
+export function useCreateReport(workspaceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof intelligenceApi.createReport>[1]) =>
+      intelligenceApi.createReport(workspaceId, body),
+    onSuccess: (report) => {
+      qc.setQueryData(intelKeys.report(report.id), report);
+      return qc.invalidateQueries({ queryKey: intelKeys.reports(workspaceId) });
+    },
   });
 }

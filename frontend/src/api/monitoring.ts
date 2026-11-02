@@ -124,3 +124,57 @@ export const monitoringApi = {
   triggerScrape: (urlId: string) => api<ScrapeJob>(`/monitored-urls/${urlId}/trigger`, { method: "POST" }),
   jobs: (urlId: string, page = 1) => api<Page<ScrapeJob>>(`/monitored-urls/${urlId}/jobs?page=${page}&size=20`),
 };
+
+// ── Search & reports ─────────────────────────────────────────────────────────
+
+export interface SearchFilters {
+  competitor_ids: string[] | null;
+  url_types: UrlType[] | null;
+  changed_since: string | null;
+}
+
+export interface SearchHit {
+  chunk_id: string;
+  score: number;
+  text: string;
+  competitor_id: string;
+  competitor_name: string;
+  monitored_url_id: string;
+  url: string;
+  url_type: UrlType;
+  snapshot_id: string;
+  first_seen_at: string;
+  removed_at: string | null;
+  is_current: boolean;
+}
+
+export interface ReportSource extends SearchHit {
+  /** The [n] the report text cites. */
+  number: number;
+  cited: boolean;
+}
+
+export interface Report {
+  id: string;
+  workspace_id: string;
+  prompt: string;
+  content: string;
+  model: string;
+  sources: ReportSource[];
+  filters: Partial<SearchFilters> & { top_k?: number };
+  created_by_user_id: string;
+  created_at: string;
+}
+
+export type ReportSummary = Pick<Report, "id" | "prompt" | "model" | "created_by_user_id" | "created_at">;
+
+export const intelligenceApi = {
+  search: (workspaceId: string, body: SearchFilters & { query: string; scope: "current" | "all"; top_k?: number }) =>
+    api<{ query: string; hits: SearchHit[] }>(`/workspaces/${workspaceId}/search`, { method: "POST", body }),
+
+  createReport: (workspaceId: string, body: SearchFilters & { prompt: string }) =>
+    api<Report>(`/workspaces/${workspaceId}/reports`, { method: "POST", body }),
+  reports: (workspaceId: string, page = 1) =>
+    api<Page<ReportSummary>>(`/workspaces/${workspaceId}/reports?page=${page}&size=20`),
+  report: (id: string) => api<Report>(`/reports/${id}`),
+};
