@@ -1,0 +1,83 @@
+/* Material 3 basic dialog. */
+.dialog {
+  --field-bg: var(--surface-high);
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  padding: 0;
+  background: var(--surface-high);
+  color: var(--text);
+  border: 0;
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 4px 8px 3px rgb(0 0 0 / 0.15),
+    0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+.dialog__form {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.dialog__title {
+  margin: 0 0 16px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 400;
+}
+
+.dialog__body {
+  color: var(--text-secondary);
+}
+
+.dialog__body > p {
+  margin: 0;
+}
+
+/* Room for the first field's floated label. */
+.dialog__body > .field:first-child {
+  margin-top: 8px;
+}
+
+.dialog__error {
+  margin: 16px 0 0;
+  color: var(--error);
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.btn--danger {
+  color: var(--error);
+}
+
+.dialog__hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+}
+
+.dialog__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.dialog__row .field + .field {
+  margin-top: 0;
+}
+
+@media (max-width: 480px) {
+  .dialog__row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}

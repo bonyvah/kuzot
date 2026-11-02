@@ -82,3 +82,13 @@
     transition: none;
   }
 }
+
+.field--select .field__label {
+  top: -12px;
+  font-size: 12px;
+}
+
+.field--select .field__input {
+  background: var(--field-bg, var(--surface));
+  cursor: pointer;
+}

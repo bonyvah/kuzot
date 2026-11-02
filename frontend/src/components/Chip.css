@@ -1,0 +1,53 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--surface-highest);
+  color: var(--text-secondary);
+}
+
+.chip--info {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.chip--success {
+  background: #0f5223;
+  color: #c4eed0;
+}
+
+.chip--error {
+  background: #8c1d18;
+  color: #f9dedc;
+}
+
+.chip--warning {
+  background: #5c4300;
+  color: #ffdf99;
+}
+
+.chip__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: chip-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chip-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip__pulse {
+    animation: none;
+  }
+}
