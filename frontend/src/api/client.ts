@@ -74,9 +74,14 @@ interface RequestOptions {
   body?: unknown;
   /** Send the access token and retry once after a refresh on 401. */
   auth?: boolean;
+  /** Abort the request, e.g. when the user cancels a slow one. */
+  signal?: AbortSignal;
 }
 
-export async function api<T>(path: string, { method = "GET", body, auth = true }: RequestOptions = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  { method = "GET", body, auth = true, signal }: RequestOptions = {},
+): Promise<T> {
   const send = () => {
     const headers: Record<string, string> = {};
     // FormData sets its own multipart Content-Type, boundary included.
@@ -88,6 +93,7 @@ export async function api<T>(path: string, { method = "GET", body, auth = true }
       headers,
       body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       credentials: "same-origin",
+      signal,
     });
   };
 

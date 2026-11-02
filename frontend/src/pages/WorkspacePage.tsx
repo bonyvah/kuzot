@@ -5,7 +5,6 @@ import { errorText } from "../api/client";
 import type { Competitor, Workspace } from "../api/monitoring";
 import {
   useCompetitors,
-  useCreateCompetitor,
   useDeleteWorkspace,
   useMembers,
   useUpdateWorkspace,
@@ -15,7 +14,7 @@ import { useUser } from "../auth/AuthProvider";
 import { AvatarDialog } from "../components/AvatarDialog";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
-import { CompetitorDialog } from "../components/CompetitorDialog";
+import { CompetitorWizard } from "../components/discovery/CompetitorWizard";
 import { HeadAvatar } from "../components/HeadAvatar";
 import { InsightFeed } from "../components/insights/InsightFeed";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -240,17 +239,5 @@ function AddCompetitor({
   onClose: () => void;
   onCreated: (c: Competitor) => void;
 }) {
-  const create = useCreateCompetitor(workspaceId);
-  return (
-    <CompetitorDialog
-      title="Add competitor"
-      confirmLabel="Add"
-      withFirstUrl
-      onSave={async (input, firstUrl) => {
-        const competitor = await create.mutateAsync({ ...input, initial_urls: firstUrl ? [firstUrl] : [] });
-        onCreated(competitor);
-      }}
-      onClose={onClose}
-    />
-  );
+  return <CompetitorWizard workspaceId={workspaceId} onClose={onClose} onCreated={onCreated} />;
 }

@@ -301,3 +301,38 @@ export const insightsApi = {
     return api<InsightFeedPage>(`/${SCOPE_PATH[scope.kind]}/${scope.id}/insights?${params}`);
   },
 };
+
+// ── Page discovery ───────────────────────────────────────────────────────────
+
+export interface ChannelHint {
+  url_type: UrlType;
+  /** A handle (@acme) or URL; empty asks Kuzot to look for one. */
+  value: string;
+  label?: string | null;
+}
+
+export interface DiscoveredPage {
+  url: string;
+  url_type: UrlType;
+  label: string | null;
+  reason: string;
+  source: "site" | "hint" | "search";
+}
+
+export interface Discovery {
+  pages: DiscoveredPage[];
+  /** Things to tell the user, e.g. that web search is off. */
+  notes: string[];
+  search_enabled: boolean;
+}
+
+export const discoveryApi = {
+  forNewCompetitor: (
+    workspaceId: string,
+    body: { name: string; website: string | null; description: string | null; notes: string | null; hints: ChannelHint[] },
+    signal?: AbortSignal,
+  ) => api<Discovery>(`/workspaces/${workspaceId}/discover`, { method: "POST", body, signal }),
+
+  findPage: (competitorId: string, lookingFor: string, signal?: AbortSignal) =>
+    api<Discovery>(`/competitors/${competitorId}/discover`, { method: "POST", body: { looking_for: lookingFor }, signal }),
+};

@@ -137,8 +137,6 @@ export function CompetitorPage() {
 
       {modal?.kind === "edit" && (
         <CompetitorDialog
-          title="Edit competitor"
-          confirmLabel="Save"
           initial={c}
           onSave={async (input) => {
             await update.mutateAsync(input);
