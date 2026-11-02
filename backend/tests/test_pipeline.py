@@ -586,3 +586,40 @@ def test_robots_allows_works_when_redis_is_down(monkeypatch):
     monkeypatch.setattr(pipeline, "get_redis", lambda: FakeRedis(broken=True))
     monkeypatch.setattr(pipeline, "fetch_robots_txt", lambda url: ROBOTS)
     assert real_robots_allows("https://acme.com/private/x") is False
+
+
+# ── social channels ───────────────────────────────────────────────
+
+def test_telegram_channel_is_scraped_as_posts(sync_session, mongo, sent_tasks, make_url, make_job, monkeypatch):
+    from app.scraping import social
+    from tests.test_social import TELEGRAM
+
+    monkeypatch.setattr(social, "fetch_html", fetch_returning(TELEGRAM))
+    url_id = make_url(url="https://t.me/s/acme_news", url_type=URLType.TELEGRAM)
+    job_id = make_job(url_id)
+
+    result = pipeline.run_scrape(job_id, None, use_browser=False)
+
+    assert result == {"status": "success", "changed": True}
+    snapshot = mongo.page_snapshots.docs[0]
+    assert snapshot["rendered_with"] == "telegram"
+    assert snapshot["paragraphs"][0].startswith("2026-11-02 · New: Pro plan now $39")
+    assert get_job(sync_session, job_id).content_changed is True
+
+
+def test_instagram_without_provider_fails_clearly(sync_session, mongo, sent_tasks, make_url, make_job, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APIFY_TOKEN", None)
+    # provider pages never touch robots.txt or our fetcher
+    monkeypatch.setattr(pipeline, "robots_allows", lambda url: pytest.fail("robots.txt consulted"))
+    monkeypatch.setattr(pipeline, "fetch_html", lambda url: pytest.fail("fetched directly"))
+    url_id = make_url(url="https://instagram.com/acme", url_type=URLType.INSTAGRAM)
+    job_id = make_job(url_id)
+
+    result = pipeline.run_scrape(job_id, None, use_browser=False)
+
+    assert result["status"] == "failed"
+    job = get_job(sync_session, job_id)
+    assert job.status == ScrapeJobStatus.FAILED
+    assert "add APIFY_TOKEN" in job.error_message

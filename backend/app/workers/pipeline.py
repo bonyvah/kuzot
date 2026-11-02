@@ -13,6 +13,7 @@ from app.scraping.extractor import (
 )
 from app.scraping.fetcher import FetchError, TransientFetchError, fetch_html
 from app.scraping.hashing import content_hash, has_changed
+from app.scraping.social import PROVIDER_TYPES, SOCIAL_TYPES, read_posts
 from app.scraping.robots import (
     RobotsUnreachable,
     fetch_robots_txt,
@@ -81,11 +82,15 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
         if url_row is None:
             raise ValueError(f"MonitoredURL {job.monitored_url_id} not found")
         url = url_row.url
+        url_type = url_row.url_type
         url_id = url_row.id
         previous_hash = url_row.last_content_hash
         db.commit()
 
     # 2. network + CPU work, no DB connection held
+    if url_type in PROVIDER_TYPES:
+        # read through the social data provider, not fetched by us
+        return _scrape_posts(job_uuid, url, url_type, url_id, previous_hash)
     try:
         allowed = robots_allows(url)
     except RobotsUnreachable as exc:
@@ -95,6 +100,9 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
     if not allowed:
         _fail(job_uuid, ROBOTS_BLOCKED)
         return {"status": "blocked"}
+
+    if url_type in SOCIAL_TYPES:
+        return _scrape_posts(job_uuid, url, url_type, url_id, previous_hash)
 
     fetch = fetch_rendered if use_browser else fetch_html
     try:
@@ -119,6 +127,31 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
         _fail(job_uuid, f"Unexpected: {type(exc).__name__}: {exc}")
         raise
 
+    return _record(
+        job_uuid, url_id, previous_hash, result.url, text, paragraphs, new_hash,
+        rendered_with="browser" if use_browser else "httpx",
+    ) | {"browser": use_browser}
+
+
+def _scrape_posts(job_uuid: UUID, url: str, url_type, url_id, previous_hash) -> dict:
+    """Social channels: recent posts, one line each, instead of page text."""
+    try:
+        posts = read_posts(url_type, url)
+    except (FetchError, TransientFetchError) as exc:
+        _fail(job_uuid, str(exc))
+        return {"status": "failed", "error": str(exc)}
+    except Exception as exc:
+        _fail(job_uuid, f"Unexpected: {type(exc).__name__}: {exc}")
+        raise
+    paragraphs = [p.line() for p in posts]
+    text = "\n".join(paragraphs)
+    return _record(
+        job_uuid, url_id, previous_hash, url, text, paragraphs, content_hash(text),
+        rendered_with="apify" if url_type in PROVIDER_TYPES else "telegram",
+    )
+
+
+def _record(job_uuid, url_id, previous_hash, final_url, text, paragraphs, new_hash, *, rendered_with) -> dict:
     # 3. compare, store in Mongo only when content changed
     changed = has_changed(previous_hash, new_hash)
     snapshot_id = None
@@ -129,12 +162,12 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
         snapshot_id = mongo_db.page_snapshots.insert_one(
             {
                 "monitored_url_id": str(url_id),
-                "url": result.url,
+                "url": final_url,
                 "content_hash": new_hash,
                 "text": text,
                 "paragraphs": paragraphs,  # line structure, for chunking
                 "scraped_at": now,
-                "rendered_with": "browser" if use_browser else "httpx",
+                "rendered_with": rendered_with,
             }
         ).inserted_id
         event_id = mongo_db.change_events.insert_one(
@@ -152,7 +185,7 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
     with SyncSession() as db:
         job = db.get(ScrapeJob, job_uuid)
         if job is None:
-            raise ValueError(f"ScrapeJob {job_id} not found")
+            raise ValueError(f"ScrapeJob {job_uuid} not found")
         job.status = ScrapeJobStatus.SUCCESS
         job.finished_at = utcnow()
         job.content_changed = changed
@@ -171,4 +204,4 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
             args=[str(event_id)],
             ignore_result=True,
         )
-    return {"status": "success", "changed": changed, "browser": use_browser}
+    return {"status": "success", "changed": changed}

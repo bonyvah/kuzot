@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     # ── Optional providers (features that need them stay off without a key) ──
     TAVILY_API_KEY: str | None = None   # web search for competitor discovery
     APIFY_TOKEN: str | None = None      # Instagram / Facebook / X data
+    APIFY_INSTAGRAM_ACTOR: str = "apify~instagram-scraper"
+    APIFY_FACEBOOK_ACTOR: str = "apify~facebook-posts-scraper"
+    APIFY_X_ACTOR: str = "apidojo~tweet-scraper"
 
     # ── App ─────────────────────────────────────────────────────────
     APP_ENV: Literal["dev", "prod", "test"] = "dev"
