@@ -1,13 +1,18 @@
 import math
+from typing import Annotated
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from redis.asyncio import Redis
+from sqlalchemy.exc import IntegrityError
 
 from app.core.auth_dependencies import CurrentUser, require_org_role
-from app.core.exceptions import CompetitorNotFoundError, MonitoredURLNotFoundError
+from app.core.cache import invalidate_cache_pattern
+from app.core.exceptions import CompetitorNotFoundError, DuplicateURLError, MonitoredURLNotFoundError
 from app.crud.competitor import competitor_crud
 from app.crud.monitored_url import monitored_url_crud
 from app.crud.workspace import workspace_crud
 from app.db.dependencies import DBSession
+from app.db.redis import get_redis
 from app.models.org_member import MemberRole
 from app.schemas.common import MessageResponse, PaginatedResponse
 from app.schemas.competitor import (
@@ -37,7 +42,12 @@ async def create_competitor(
         raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
-    return await competitor_crud.create(db, workspace_id=workspace_id, obj_in=body)
+    # monitored URLs are unique across all competitors
+    try:
+        return await competitor_crud.create(db, workspace_id=workspace_id, obj_in=body)
+    except IntegrityError:
+        await db.rollback()
+        raise DuplicateURLError()
 
 
 @router.get(
@@ -136,6 +146,7 @@ async def add_monitored_url(
     body: MonitoredURLCreate,
     current_user: CurrentUser,
     db: DBSession,
+    redis: Annotated[Redis, Depends(get_redis)],
 ):
     competitor = await competitor_crud.get_by_id(db, competitor_id)
     if not competitor:
@@ -145,7 +156,14 @@ async def add_monitored_url(
         raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
-    return await monitored_url_crud.create(db, competitor_id=competitor_id, obj_in=body)
+    try:
+        monitored_url = await monitored_url_crud.create(db, competitor_id=competitor_id, obj_in=body)
+    except IntegrityError:
+        await db.rollback()
+        raise DuplicateURLError()
+
+    await invalidate_cache_pattern(redis, f"competitor:{competitor_id}:urls")
+    return monitored_url
 
 
 @router.delete("/monitored-urls/{url_id}", response_model=MessageResponse)
@@ -153,6 +171,7 @@ async def delete_monitored_url(
     url_id: UUID,
     current_user: CurrentUser,
     db: DBSession,
+    redis: Annotated[Redis, Depends(get_redis)],
 ):
     monitored_url = await monitored_url_crud.get_by_id(db, url_id)
     if not monitored_url:
@@ -167,4 +186,5 @@ async def delete_monitored_url(
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
     await monitored_url_crud.delete(db, monitored_url)
+    await invalidate_cache_pattern(redis, f"competitor:{competitor.id}:urls")
     return MessageResponse(message="Monitored URL deleted successfully")

@@ -36,3 +36,11 @@ class AIServiceError(HTTPException):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"AI service unavailable: {reason}"
         )
+
+
+class DuplicateURLError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This URL is already being monitored"
+        )
