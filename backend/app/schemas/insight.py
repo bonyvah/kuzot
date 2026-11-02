@@ -7,6 +7,11 @@ from pydantic import BaseModel
 from app.models.monitored_url import URLType
 
 
+class DiffLine(BaseModel):
+    op: Literal["context", "removed", "added"]
+    text: str
+
+
 class InsightPublic(BaseModel):
     id: str
     org_id: UUID
@@ -22,6 +27,8 @@ class InsightPublic(BaseModel):
     headline: str
     # pending: the AI headline isn't written yet and `headline` is a fallback
     headline_status: Literal["pending", "done", "failed"]
+    # changed lines with a little context, in hunks; empty for older insights
+    diff: list[list[DiffLine]] = []
     added: list[str]
     removed: list[str]
     added_count: int

@@ -482,6 +482,10 @@ def test_change_becomes_an_insight_with_added_and_removed_text(
     assert any("Team plan" in t for t in insight["removed"])
     assert not any("Pro plan" in t for t in insight["added"] + insight["removed"])
     assert insight["headline"] == "Pricing page changed"
+    lines = [line for hunk in insight["diff"] for line in hunk]
+    assert any(line["op"] == "added" and "Enterprise" in line["text"] for line in lines)
+    assert any(line["op"] == "removed" and "Team plan" in line["text"] for line in lines)
+    assert not any(line["op"] != "context" and "Pro plan" in line["text"] for line in lines)
     assert insight["headline_status"] == "pending"
 
 

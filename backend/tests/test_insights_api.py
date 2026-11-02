@@ -114,6 +114,7 @@ async def test_feeds_are_scoped_named_and_paginated(client: AsyncClient, insight
     assert first["workspace_name"] == "General"
     assert first["added"] == ["Pro $39"] and first["removed"] == ["Pro $49"]
     assert first["headline"] == "Pricing page changed"
+    assert first["diff"] == [[{"op": "removed", "text": "Pro $49"}, {"op": "added", "text": "Pro $39"}]]
     assert org_feed["next_cursor"] is None
 
     # Cursor pages walk the feed newest first without overlap
@@ -170,7 +171,7 @@ def test_headline_prompt_and_cleanup(monkeypatch):
     )
     messages = headline.build_messages(insight, "Brightdesk")
     assert "Brightdesk" in messages[1]["content"]
-    assert "REMOVED:\nPro — $49" in messages[1]["content"]
+    assert "- Pro — $49 per month\n+ Pro — $39 per month" in messages[1]["content"]
 
     class Reply:
         def __init__(self, text):
