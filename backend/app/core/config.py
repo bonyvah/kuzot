@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # Where browsers fetch media from: the Vite proxy in dev, a CDN in prod
     MEDIA_BASE_URL: str = "/media"
 
+    # ── Optional providers (features that need them stay off without a key) ──
+    TAVILY_API_KEY: str | None = None   # web search for competitor discovery
+    APIFY_TOKEN: str | None = None      # Instagram / Facebook / X data
+
     # ── App ─────────────────────────────────────────────────────────
     APP_ENV: Literal["dev", "prod", "test"] = "dev"
     DEBUG: bool = False
