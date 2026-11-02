@@ -294,3 +294,28 @@
     animation: none;
   }
 }
+
+/* Add page dialog */
+.add-page__find {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.add-page__find .field {
+  flex: 1;
+}
+
+.add-page__find .btn {
+  height: 56px;
+}
+
+.add-page__hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.add-page__results {
+  margin-top: 16px;
+}

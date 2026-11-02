@@ -18,7 +18,8 @@ import { Chip } from "../components/Chip";
 import { CompetitorDialog } from "../components/CompetitorDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { InsightFeed } from "../components/insights/InsightFeed";
-import { IntervalDialog, UrlDialog } from "../components/UrlDialog";
+import { AddPageDialog } from "../components/discovery/AddPageDialog";
+import { IntervalDialog } from "../components/IntervalDialog";
 import { pageTypeName } from "../components/urlForm";
 import { formatDate, formatInterval, timeAgo } from "../format";
 import "./Page.css";
@@ -154,7 +155,7 @@ export function CompetitorPage() {
           onDeleted={() => navigate(`/workspaces/${c.workspace_id}/competitors`)}
         />
       )}
-      {modal?.kind === "add-url" && <AddUrl competitorId={c.id} onClose={close} />}
+      {modal?.kind === "add-url" && <AddUrl competitorId={c.id} competitorName={c.name} onClose={close} />}
       {modal?.kind === "scrape" && (
         <ConfirmScrape
           competitorId={c.id}
@@ -315,12 +316,14 @@ function DeleteCompetitor({
   );
 }
 
-function AddUrl({ competitorId, onClose }: { competitorId: string; onClose: () => void }) {
+function AddUrl({ competitorId, competitorName, onClose }: { competitorId: string; competitorName: string; onClose: () => void }) {
   const add = useAddUrl(competitorId);
   return (
-    <UrlDialog
-      onSave={async (input) => {
-        await add.mutateAsync(input);
+    <AddPageDialog
+      competitorId={competitorId}
+      competitorName={competitorName}
+      onSave={async (pages) => {
+        for (const page of pages) await add.mutateAsync(page);
         onClose();
       }}
       onClose={onClose}

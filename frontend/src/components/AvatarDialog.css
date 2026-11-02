@@ -14,37 +14,6 @@
   color: var(--text-secondary);
 }
 
-.avatar-dialog__tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--outline-variant);
-}
-
-.avatar-dialog__tabs button {
-  position: relative;
-  padding: 10px 16px;
-  background: none;
-  border: 0;
-  color: var(--text-secondary);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.avatar-dialog__tabs button[aria-selected="true"] {
-  color: var(--primary);
-}
-
-.avatar-dialog__tabs button[aria-selected="true"]::after {
-  content: "";
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 0;
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: var(--primary);
-}
 
 .emoji-groups {
   max-height: 320px;

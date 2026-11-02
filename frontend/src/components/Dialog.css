@@ -85,3 +85,36 @@
 .dialog__lead {
   margin: 0 0 16px;
 }
+
+/* Tabs inside a dialog */
+.dialog-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.dialog-tabs button {
+  position: relative;
+  padding: 10px 16px;
+  background: none;
+  border: 0;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dialog-tabs button[aria-selected="true"] {
+  color: var(--primary);
+}
+
+.dialog-tabs button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--primary);
+}

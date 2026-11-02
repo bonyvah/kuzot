@@ -79,7 +79,7 @@ export function AvatarDialog({ kind, id, name, avatar, onClose }: AvatarDialogPr
           </div>
         </div>
 
-        <div className="avatar-dialog__tabs" role="tablist">
+        <div className="dialog-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === "emoji"} onClick={() => setTab("emoji")}>
             Emoji
           </button>
