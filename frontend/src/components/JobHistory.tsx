@@ -7,6 +7,7 @@ import { isInFlight, keys } from "../api/queries";
 import { formatDate, formatDuration, timeAgo } from "../format";
 import { Button } from "./Button";
 import { Chip, type ChipTone } from "./Chip";
+import { pageTypeName } from "./urlForm";
 
 const ACTIVE_POLL_MS = 2_000;
 const IDLE_POLL_MS = 30_000;
@@ -27,22 +28,29 @@ export function JobStatusChip({ status }: { status: JobStatus }) {
   );
 }
 
+interface JobHistoryProps {
+  competitorId: string;
+  urls: MonitoredUrl[];
+  /** Only this page's jobs; null for all of the competitor's pages. */
+  urlId: string | null;
+}
+
 /**
- * Scrape history for one page. Polls every 2 s while a job is queued or
- * running, otherwise every 30 s to pick up scheduled runs.
+ * Scrape history for a competitor's pages. Polls every 2 s while a job is
+ * queued or running, otherwise every 30 s to pick up scheduled runs.
  */
-export function JobHistory({ url, competitorId }: { url: MonitoredUrl; competitorId: string }) {
+export function JobHistory({ competitorId, urls, urlId }: JobHistoryProps) {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const jobs = useQuery({
-    queryKey: [...keys.jobs(url.id), page],
-    queryFn: () => monitoringApi.jobs(url.id, page),
+    queryKey: [...keys.competitorJobs(competitorId), urlId, page],
+    queryFn: () => monitoringApi.competitorJobs(competitorId, urlId, page),
     placeholderData: (prev) => prev,
     refetchInterval: (query) =>
       query.state.data?.items.some((job) => isInFlight(job.status)) ? ACTIVE_POLL_MS : IDLE_POLL_MS,
   });
 
-  // When the last in-flight job settles, the page's "last checked" time changed.
+  // When the last in-flight job settles, pages' "last checked" times changed.
   const inFlight = jobs.data?.items.some((job) => isInFlight(job.status)) ?? false;
   const wasInFlight = useRef(inFlight);
   useEffect(() => {
@@ -56,6 +64,7 @@ export function JobHistory({ url, competitorId }: { url: MonitoredUrl; competito
     return <p className="page__note">No scrapes yet. Use “Scrape now” or wait for the next scheduled check.</p>;
   }
 
+  const byId = new Map(urls.map((u) => [u.id, u]));
   const { items, pages } = jobs.data;
   return (
     <>
@@ -63,6 +72,7 @@ export function JobHistory({ url, competitorId }: { url: MonitoredUrl; competito
         <table className="table">
           <thead>
             <tr>
+              {!urlId && <th scope="col">Page</th>}
               <th scope="col">Status</th>
               <th scope="col">Queued</th>
               <th scope="col">Trigger</th>
@@ -71,25 +81,33 @@ export function JobHistory({ url, competitorId }: { url: MonitoredUrl; competito
             </tr>
           </thead>
           <tbody>
-            {items.map((job) => (
-              <tr key={job.id}>
-                <td>
-                  <JobStatusChip status={job.status} />
-                </td>
-                <td title={formatDate(job.created_at)}>{timeAgo(job.created_at)}</td>
-                <td>{job.triggered_by === "manual" ? "Manual" : "Scheduled"}</td>
-                <td>{formatDuration(job.started_at, job.finished_at)}</td>
-                <td className="table__url" title={job.error_message ?? undefined}>
-                  {job.status === "failed"
-                    ? (job.error_message ?? "Failed")
-                    : job.status === "success"
-                      ? job.content_changed
-                        ? "Content changed"
-                        : "No change"
-                      : "—"}
-                </td>
-              </tr>
-            ))}
+            {items.map((job) => {
+              const url = byId.get(job.monitored_url_id);
+              return (
+                <tr key={job.id}>
+                  {!urlId && (
+                    <td className="table__url" title={url?.url}>
+                      {url ? `${pageTypeName(url)} · ${url.url}` : "Removed page"}
+                    </td>
+                  )}
+                  <td>
+                    <JobStatusChip status={job.status} />
+                  </td>
+                  <td title={formatDate(job.created_at)}>{timeAgo(job.created_at)}</td>
+                  <td>{job.triggered_by === "manual" ? "Manual" : "Scheduled"}</td>
+                  <td>{formatDuration(job.started_at, job.finished_at)}</td>
+                  <td className="table__url" title={job.error_message ?? undefined}>
+                    {job.status === "failed"
+                      ? (job.error_message ?? "Failed")
+                      : job.status === "success"
+                        ? job.content_changed
+                          ? "Content changed"
+                          : "No change"
+                        : "—"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

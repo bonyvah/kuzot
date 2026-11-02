@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { errorText } from "../api/client";
 import type { MonitoredUrl } from "../api/monitoring";
@@ -17,7 +17,7 @@ import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { CompetitorDialog } from "../components/CompetitorDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { JobHistory } from "../components/JobHistory";
+import { InsightFeed } from "../components/insights/InsightFeed";
 import { IntervalDialog, UrlDialog } from "../components/UrlDialog";
 import { pageTypeName } from "../components/urlForm";
 import { formatDate, formatInterval, timeAgo } from "../format";
@@ -29,17 +29,19 @@ type Modal =
   | { kind: "add-url" }
   | { kind: "interval"; url: MonitoredUrl }
   | { kind: "delete-url"; url: MonitoredUrl }
+  | { kind: "scrape"; url: MonitoredUrl }
+  | { kind: "toggle"; url: MonitoredUrl }
   | null;
 
-/** One competitor: its monitored pages, and scrape history for the selected page. */
+/** One competitor: what changed on its pages, and the pages being monitored. */
 export function CompetitorPage() {
   const { competitorId = "" } = useParams();
   const navigate = useNavigate();
-  const [search, setSearch] = useSearchParams();
   const competitor = useCompetitor(competitorId);
   const workspace = useWorkspace(competitor.data?.workspace_id ?? "");
   const update = useUpdateCompetitor(competitorId);
   const [modal, setModal] = useState<Modal>(null);
+  const [queued, setQueued] = useState<MonitoredUrl | null>(null);
 
   if (competitor.isLoading) return <p className="page page__note">Loading…</p>;
   if (competitor.error || !competitor.data) {
@@ -49,10 +51,6 @@ export function CompetitorPage() {
   }
   const c = competitor.data;
   const close = () => setModal(null);
-
-  // The selected page's history is in the URL so it survives reloads and can be shared.
-  const selected = c.urls.find((u) => u.id === search.get("url")) ?? c.urls[0];
-  const selectUrl = (id: string) => setSearch({ url: id }, { replace: true });
 
   return (
     <div className="page">
@@ -78,6 +76,9 @@ export function CompetitorPage() {
           {c.description && <p className="page__subtitle">{c.description}</p>}
         </div>
         <div className="page__actions">
+          <Link to={`/competitors/${c.id}/history`} className="btn btn--text btn-link">
+            History
+          </Link>
           <Button
             variant="text"
             disabled={update.isPending}
@@ -95,6 +96,15 @@ export function CompetitorPage() {
       </div>
       {update.error && <p className="page__error">{errorText(update.error)}</p>}
 
+      <section className="page__section page--feed" aria-labelledby="insights-title">
+        <div className="page__section-head">
+          <h2 id="insights-title" className="page__section-title">
+            Insights
+          </h2>
+        </div>
+        <InsightFeed scope={{ kind: "competitor", id: c.id }} />
+      </section>
+
       <section className="page__section" aria-labelledby="urls-title">
         <div className="page__section-head">
           <h2 id="urls-title" className="page__section-title">
@@ -110,26 +120,20 @@ export function CompetitorPage() {
           </div>
         ) : (
           <UrlTable
-            competitorId={c.id}
             urls={c.urls}
-            selectedId={selected?.id}
-            onSelect={selectUrl}
+            onScrape={(url) => setModal({ kind: "scrape", url })}
+            onToggle={(url) => setModal({ kind: "toggle", url })}
             onEditInterval={(url) => setModal({ kind: "interval", url })}
             onDelete={(url) => setModal({ kind: "delete-url", url })}
           />
         )}
+        {queued && (
+          <p className="page__note" role="status">
+            Scrape of {queued.url} queued.{" "}
+            <Link to={`/competitors/${c.id}/history?url=${queued.id}`}>Follow it in History</Link>
+          </p>
+        )}
       </section>
-
-      {selected && (
-        <section className="page__section" aria-labelledby="history-title">
-          <div className="page__section-head">
-            <h2 id="history-title" className="page__section-title">
-              Scrape history · <span className="page__note">{selected.url}</span>
-            </h2>
-          </div>
-          <JobHistory key={selected.id} url={selected} competitorId={c.id} />
-        </section>
-      )}
 
       {modal?.kind === "edit" && (
         <CompetitorDialog
@@ -152,7 +156,19 @@ export function CompetitorPage() {
           onDeleted={() => navigate(`/workspaces/${c.workspace_id}/competitors`)}
         />
       )}
-      {modal?.kind === "add-url" && <AddUrl competitorId={c.id} onClose={close} onAdded={selectUrl} />}
+      {modal?.kind === "add-url" && <AddUrl competitorId={c.id} onClose={close} />}
+      {modal?.kind === "scrape" && (
+        <ConfirmScrape
+          competitorId={c.id}
+          url={modal.url}
+          onClose={close}
+          onQueued={(url) => {
+            setQueued(url);
+            close();
+          }}
+        />
+      )}
+      {modal?.kind === "toggle" && <ConfirmToggle competitorId={c.id} url={modal.url} onClose={close} />}
       {modal?.kind === "interval" && <EditInterval competitorId={c.id} url={modal.url} onClose={close} />}
       {modal?.kind === "delete-url" && <DeleteUrl competitorId={c.id} url={modal.url} onClose={close} />}
     </div>
@@ -160,89 +176,115 @@ export function CompetitorPage() {
 }
 
 interface UrlTableProps {
-  competitorId: string;
   urls: MonitoredUrl[];
-  selectedId: string | undefined;
-  onSelect: (id: string) => void;
+  onScrape: (url: MonitoredUrl) => void;
+  onToggle: (url: MonitoredUrl) => void;
   onEditInterval: (url: MonitoredUrl) => void;
   onDelete: (url: MonitoredUrl) => void;
 }
 
-function UrlTable({ competitorId, urls, selectedId, onSelect, onEditInterval, onDelete }: UrlTableProps) {
-  const updateUrl = useUpdateUrl(competitorId);
-  const trigger = useTriggerScrape(competitorId);
-  const busyId = trigger.isPending ? trigger.variables : undefined;
-  const error = trigger.error ?? updateUrl.error;
-
+function UrlTable({ urls, onScrape, onToggle, onEditInterval, onDelete }: UrlTableProps) {
   return (
-    <>
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th scope="col">Page</th>
-              <th scope="col">Type</th>
-              <th scope="col">Check</th>
-              <th scope="col">Last checked</th>
-              <th scope="col">Active</th>
-              <th scope="col">
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {urls.map((url) => (
-              <tr key={url.id} className={url.id === selectedId ? "table__row--selected" : undefined}>
-                <td className="table__url" title={url.url}>
-                  <a href={url.url} target="_blank" rel="noreferrer noopener">
-                    {url.url}
-                  </a>
-                </td>
-                <td>{pageTypeName(url)}</td>
-                <td>
-                  <Button variant="text" onClick={() => onEditInterval(url)} aria-label={`Change check frequency for ${url.url}`}>
-                    {formatInterval(url.scrape_interval_minutes)}
+    <div className="table-wrap">
+      <table className="table">
+        <thead>
+          <tr>
+            <th scope="col">Page</th>
+            <th scope="col">Type</th>
+            <th scope="col">Check</th>
+            <th scope="col">Last checked</th>
+            <th scope="col">Active</th>
+            <th scope="col">
+              <span className="visually-hidden">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {urls.map((url) => (
+            <tr key={url.id}>
+              <td className="table__url" title={url.url}>
+                <a href={url.url} target="_blank" rel="noreferrer noopener">
+                  {url.url}
+                </a>
+              </td>
+              <td>{pageTypeName(url)}</td>
+              <td>
+                <Button variant="text" onClick={() => onEditInterval(url)} aria-label={`Change check frequency for ${url.url}`}>
+                  {formatInterval(url.scrape_interval_minutes)}
+                </Button>
+              </td>
+              <td title={formatDate(url.last_scraped_at)}>{timeAgo(url.last_scraped_at)}</td>
+              <td>
+                <label className="switch">
+                  {/* Controlled: the change only happens after confirming. */}
+                  <input type="checkbox" checked={url.is_active} onChange={() => onToggle(url)} />
+                  <span className="visually-hidden">Monitor {url.url}</span>
+                </label>
+              </td>
+              <td>
+                <div className="table__actions">
+                  <Button variant="text" onClick={() => onScrape(url)}>
+                    Scrape now
                   </Button>
-                </td>
-                <td title={formatDate(url.last_scraped_at)}>{timeAgo(url.last_scraped_at)}</td>
-                <td>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={url.is_active}
-                      disabled={updateUrl.isPending}
-                      onChange={() => updateUrl.mutate({ id: url.id, is_active: !url.is_active })}
-                    />
-                    <span className="visually-hidden">Monitor {url.url}</span>
-                  </label>
-                </td>
-                <td>
-                  <div className="table__actions">
-                    <Button
-                      variant="text"
-                      disabled={busyId === url.id}
-                      onClick={() => {
-                        onSelect(url.id);
-                        trigger.mutate(url.id);
-                      }}
-                    >
-                      Scrape now
-                    </Button>
-                    <Button variant="text" onClick={() => onSelect(url.id)} aria-pressed={url.id === selectedId}>
-                      History
-                    </Button>
-                    <Button variant="text" className="btn--danger" onClick={() => onDelete(url)}>
-                      Remove
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {error && <p className="page__error">{errorText(error)}</p>}
-    </>
+                  <Button variant="text" className="btn--danger" onClick={() => onDelete(url)}>
+                    Remove
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ConfirmScrape({
+  competitorId,
+  url,
+  onClose,
+  onQueued,
+}: {
+  competitorId: string;
+  url: MonitoredUrl;
+  onClose: () => void;
+  onQueued: (url: MonitoredUrl) => void;
+}) {
+  const trigger = useTriggerScrape(competitorId);
+  return (
+    <ConfirmDialog
+      danger={false}
+      title="Scrape this page now?"
+      confirmLabel="Scrape now"
+      onConfirm={async () => {
+        await trigger.mutateAsync(url.id);
+        onQueued(url);
+      }}
+      onClose={onClose}
+    >
+      Kuzot will check {url.url} right away instead of waiting for its next scheduled check.
+    </ConfirmDialog>
+  );
+}
+
+function ConfirmToggle({ competitorId, url, onClose }: { competitorId: string; url: MonitoredUrl; onClose: () => void }) {
+  const update = useUpdateUrl(competitorId);
+  const pausing = url.is_active;
+  return (
+    <ConfirmDialog
+      danger={false}
+      title={pausing ? "Pause monitoring?" : "Resume monitoring?"}
+      confirmLabel={pausing ? "Pause" : "Resume"}
+      onConfirm={async () => {
+        await update.mutateAsync({ id: url.id, is_active: !pausing });
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      {pausing
+        ? `${url.url} won't be checked until you resume it. Its history and insights are kept.`
+        : `${url.url} will be checked on its schedule again.`}
+    </ConfirmDialog>
   );
 }
 
@@ -275,21 +317,12 @@ function DeleteCompetitor({
   );
 }
 
-function AddUrl({
-  competitorId,
-  onClose,
-  onAdded,
-}: {
-  competitorId: string;
-  onClose: () => void;
-  onAdded: (id: string) => void;
-}) {
+function AddUrl({ competitorId, onClose }: { competitorId: string; onClose: () => void }) {
   const add = useAddUrl(competitorId);
   return (
     <UrlDialog
       onSave={async (input) => {
-        const url = await add.mutateAsync(input);
-        onAdded(url.id);
+        await add.mutateAsync(input);
         onClose();
       }}
       onClose={onClose}

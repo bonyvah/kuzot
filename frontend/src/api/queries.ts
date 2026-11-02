@@ -23,6 +23,7 @@ export const keys = {
   competitors: (workspaceId: string) => ["workspaces", workspaceId, "competitors"] as const,
   competitor: (id: string) => ["competitors", id] as const,
   jobs: (urlId: string) => ["monitored-urls", urlId, "jobs"] as const,
+  competitorJobs: (competitorId: string) => ["competitors", competitorId, "jobs"] as const,
 };
 
 export const isInFlight = (status: JobStatus) => status === "pending" || status === "running";
@@ -236,6 +237,7 @@ export function useTriggerScrape(competitorId: string) {
     onSuccess: (job) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: keys.jobs(job.monitored_url_id) }),
+        qc.invalidateQueries({ queryKey: keys.competitorJobs(competitorId) }),
         qc.invalidateQueries({ queryKey: keys.competitor(competitorId) }),
       ]),
   });

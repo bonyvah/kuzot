@@ -182,6 +182,10 @@ export const monitoringApi = {
   deleteUrl: (id: string) => api<{ message: string }>(`/monitored-urls/${id}`, { method: "DELETE" }),
 
   triggerScrape: (urlId: string) => api<ScrapeJob>(`/monitored-urls/${urlId}/trigger`, { method: "POST" }),
+  competitorJobs: (competitorId: string, urlId: string | null, page = 1) =>
+    api<Page<ScrapeJob>>(
+      `/competitors/${competitorId}/jobs?page=${page}&size=20${urlId ? `&url_id=${urlId}` : ""}`,
+    ),
   jobs: (urlId: string, page = 1) => api<Page<ScrapeJob>>(`/monitored-urls/${urlId}/jobs?page=${page}&size=20`),
 };
 

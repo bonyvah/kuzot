@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router";
 import { RedirectIfAuthed, RequireAuth } from "./auth/guards";
 import { AppShell } from "./components/AppShell";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
+import { CompetitorHistoryPage } from "./pages/CompetitorHistoryPage";
 import { CompetitorPage } from "./pages/CompetitorPage";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
           { path: "reports/:reportId", element: <ReportPage /> },
           { path: "organization", element: <OrganizationPage /> },
           { path: "competitors/:competitorId", element: <CompetitorPage /> },
+          { path: "competitors/:competitorId/history", element: <CompetitorHistoryPage /> },
         ],
       },
     ],

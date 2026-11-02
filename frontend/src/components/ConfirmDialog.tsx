@@ -9,15 +9,17 @@ interface ConfirmDialogProps {
   children: ReactNode;
   onConfirm: () => Promise<void>;
   onClose: () => void;
+  /** Red confirm button; off for non-destructive actions. */
+  danger?: boolean;
 }
 
-/** Confirmation for a destructive action. */
-export function ConfirmDialog({ title, confirmLabel, children, onConfirm, onClose }: ConfirmDialogProps) {
+/** Asks before an action runs; destructive by default. */
+export function ConfirmDialog({ title, confirmLabel, children, onConfirm, onClose, danger = true }: ConfirmDialogProps) {
   const save = useSave(onConfirm);
   return (
     <Dialog
       open
-      danger
+      danger={danger}
       title={title}
       confirmLabel={confirmLabel}
       onClose={onClose}
