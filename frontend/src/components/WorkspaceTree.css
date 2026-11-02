@@ -1,0 +1,95 @@
+.tree__list,
+.tree__children {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tree__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tree__link {
+  flex: 1;
+  min-width: 0;
+  padding-right: 40px; /* room for the chevron */
+}
+
+/* The name is the link: underline and tint it on hover so it reads as one. */
+.tree__link:hover .tree__name {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tree__link.active:hover .tree__name {
+  color: var(--on-primary-container);
+}
+
+.tree__toggle {
+  position: absolute;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tree__toggle:hover {
+  background: var(--press);
+  color: var(--text);
+}
+
+.tree__toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.tree__toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.tree__children {
+  margin: 2px 0 6px;
+}
+
+.tree__child {
+  height: 30px;
+  padding-left: 44px;
+  font-size: 13px;
+  gap: 12px;
+}
+
+.tree__child:hover .tree__name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tree__note {
+  padding: 4px 12px 4px 50px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Icon-only rail: workspaces as avatars, no chevrons or competitors. */
+.shell--collapsed .tree__toggle,
+.shell--collapsed .tree__children {
+  display: none;
+}
+
+.shell--collapsed .tree__link {
+  padding-right: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree__toggle svg {
+    transition: none;
+  }
+}
