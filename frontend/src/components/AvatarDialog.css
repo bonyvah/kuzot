@@ -1,0 +1,125 @@
+.avatar-dialog__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.avatar-dialog__head .dialog__title {
+  margin: 0;
+}
+
+.avatar-dialog__hint {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+}
+
+.avatar-dialog__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.avatar-dialog__tabs button {
+  position: relative;
+  padding: 10px 16px;
+  background: none;
+  border: 0;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.avatar-dialog__tabs button[aria-selected="true"] {
+  color: var(--primary);
+}
+
+.avatar-dialog__tabs button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--primary);
+}
+
+.emoji-groups {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.emoji-groups__label {
+  margin: 8px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 4px;
+}
+
+.emoji-grid__item {
+  height: 44px;
+  background: none;
+  border: 0;
+  border-radius: 12px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.emoji-grid__item:hover {
+  background: var(--hover);
+}
+
+.emoji-grid__item--on {
+  background: var(--primary-container);
+}
+
+.upload__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 16px;
+  border: 1px dashed var(--outline);
+  border-radius: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.upload__drop:hover,
+.upload__drop:focus-within {
+  border-color: var(--primary);
+  background: var(--primary-hover);
+}
+
+.upload__drop--error {
+  border-color: var(--error);
+}
+
+.upload__drop input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.upload__title {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.upload__note {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.avatar-dialog__remove {
+  margin-right: auto;
+}

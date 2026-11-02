@@ -1,0 +1,20 @@
+.avatar-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 28%;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+.avatar-tile--emoji {
+  background: var(--surface-highest);
+}
+
+.avatar-tile--image {
+  object-fit: cover;
+  background: var(--surface-highest);
+}

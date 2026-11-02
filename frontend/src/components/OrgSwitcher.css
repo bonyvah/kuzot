@@ -29,15 +29,6 @@
   font-weight: 500;
 }
 
-.org-badge {
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--primary-container);
-  color: var(--on-primary-container);
-  font-weight: 500;
-}
 
 .orgs__panel {
   position: absolute;

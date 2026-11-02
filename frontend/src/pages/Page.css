@@ -331,3 +331,43 @@ a.card:hover {
 .danger-zone .btn {
   margin-left: -12px;
 }
+
+.card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Avatar in a page header; a button when the viewer may change it. */
+.head-avatar {
+  flex: none;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 28%;
+}
+
+button.head-avatar {
+  position: relative;
+  cursor: pointer;
+}
+
+button.head-avatar::after {
+  content: "Edit";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+button.head-avatar:hover::after,
+button.head-avatar:focus-visible::after {
+  opacity: 1;
+}

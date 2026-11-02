@@ -2,7 +2,13 @@ import { api } from "./client";
 
 // Mirrors of the backend's *Public schemas. Timestamps are ISO strings.
 
-export interface Organization {
+/** An emoji or an uploaded image; both null means "use the initial". */
+export interface Avatar {
+  avatar_emoji: string | null;
+  avatar_url: string | null;
+}
+
+export interface Organization extends Avatar {
   id: string;
   name: string;
   slug: string;
@@ -24,7 +30,7 @@ export interface OrgMember {
   joined_at: string;
 }
 
-export interface Workspace {
+export interface Workspace extends Avatar {
   id: string;
   org_id: string;
   name: string;
@@ -103,6 +109,11 @@ export interface UrlInput {
   scrape_interval_minutes: number | null;
 }
 
+export type AvatarOwner = "organization" | "workspace";
+
+const avatarPath = (kind: AvatarOwner, id: string) =>
+  kind === "organization" ? `/organizations/${id}/avatar` : `/workspaces/${id}/avatar`;
+
 export const monitoringApi = {
   // The organizations router is mounted with a trailing slash.
   organizations: () => api<Organization[]>("/organizations/"),
@@ -111,6 +122,16 @@ export const monitoringApi = {
   renameOrganization: (id: string, name: string) =>
     api<Organization>(`/organizations/${id}`, { method: "PUT", body: { name } }),
   deleteOrganization: (id: string) => api<{ message: string }>(`/organizations/${id}`, { method: "DELETE" }),
+
+  setAvatarEmoji: (kind: AvatarOwner, id: string, emoji: string) =>
+    api<Organization | Workspace>(`${avatarPath(kind, id)}`, { method: "PUT", body: { emoji } }),
+  uploadAvatar: (kind: AvatarOwner, id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api<Organization | Workspace>(`${avatarPath(kind, id)}/image`, { method: "POST", body: form });
+  },
+  clearAvatar: (kind: AvatarOwner, id: string) =>
+    api<Organization | Workspace>(avatarPath(kind, id), { method: "DELETE" }),
 
   members: (orgId: string) => api<OrgMember[]>(`/organizations/${orgId}/members`),
   addMember: (orgId: string, email: string, role: MemberRole) =>

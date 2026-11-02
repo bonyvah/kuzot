@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { errorText } from "../api/client";
 import { useCreateWorkspace, useWorkspaces } from "../api/queries";
+import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { WorkspaceDialog } from "../components/WorkspaceDialog";
 import { formatDate } from "../format";
@@ -46,7 +47,10 @@ export function DashboardPage() {
         <div className="cards">
           {workspaces.data.map((ws) => (
             <Link key={ws.id} to={`/workspaces/${ws.id}`} className="card">
-              <h2 className="card__title">{ws.name}</h2>
+              <div className="card__head">
+                <Avatar name={ws.name} avatar={ws} size={36} />
+                <h2 className="card__title">{ws.name}</h2>
+              </div>
               {ws.description && <p className="card__text">{ws.description}</p>}
               <div className="card__meta">Created {formatDate(ws.created_at)}</div>
             </Link>

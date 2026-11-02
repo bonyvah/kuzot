@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet } from "react-router";
 import { useWorkspaces } from "../api/queries";
 import { useAuth, useUser } from "../auth/AuthProvider";
 import { OrgProvider, useOrg } from "../org/OrgProvider";
+import { Avatar as EntityAvatar } from "./Avatar";
 import { Logo } from "./Logo";
 import { OrgSwitcher } from "./OrgSwitcher";
 import "./AppShell.css";
@@ -70,9 +71,7 @@ function WorkspaceNav() {
       <div className="nav-heading">{current?.name}</div>
       {workspaces.map((ws) => (
         <NavLink key={ws.id} to={`/workspaces/${ws.id}`} className="nav-item" title={ws.name}>
-          <span className="nav-item__dot" aria-hidden="true">
-            {ws.name[0]?.toUpperCase()}
-          </span>
+          <EntityAvatar name={ws.name} avatar={ws} size={20} className="nav-item__avatar" />
           <span className="nav-item__label">{ws.name}</span>
         </NavLink>
       ))}

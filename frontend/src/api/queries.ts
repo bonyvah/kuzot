@@ -4,6 +4,7 @@ import {
   intelligenceApi,
   monitoringApi,
   type CompetitorInput,
+  type AvatarOwner,
   type JobStatus,
   type MemberRole,
   type UrlInput,
@@ -56,8 +57,24 @@ export function useDeleteOrganization(id: string) {
   return useMutation({ mutationFn: () => monitoringApi.deleteOrganization(id), onSuccess: () => forget(id) });
 }
 
+/** Emoji, upload and clear for an org's or a workspace's avatar. */
+export function useAvatarActions(kind: AvatarOwner, id: string) {
+  const qc = useQueryClient();
+  // Avatars show in the org menu, nav, cards and headers: refresh them all.
+  const refresh = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: keys.organizations }),
+      qc.invalidateQueries({ queryKey: ["workspaces", id], exact: true }),
+    ]);
+  return {
+    setEmoji: useMutation({ mutationFn: (emoji: string) => monitoringApi.setAvatarEmoji(kind, id, emoji), onSuccess: refresh }),
+    upload: useMutation({ mutationFn: (file: File) => monitoringApi.uploadAvatar(kind, id, file), onSuccess: refresh }),
+    clear: useMutation({ mutationFn: () => monitoringApi.clearAvatar(kind, id), onSuccess: refresh }),
+  };
+}
+
 export function useMembers(orgId: string) {
-  return useQuery({ queryKey: keys.members(orgId), queryFn: () => monitoringApi.members(orgId) });
+  return useQuery({ queryKey: keys.members(orgId), queryFn: () => monitoringApi.members(orgId), enabled: !!orgId });
 }
 
 export function useAddMember(orgId: string) {

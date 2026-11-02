@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import { useCreateOrganization } from "../api/queries";
 import { useOrg } from "../org/OrgProvider";
+import { Avatar } from "./Avatar";
 import { Dialog } from "./Dialog";
 import { TextField } from "./TextField";
 import { useSave } from "./useSave";
@@ -49,7 +50,7 @@ export function OrgSwitcher() {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <OrgBadge name={current.name} />
+        <Avatar name={current.name} avatar={current} />
         <span className="orgs__name">{current.name}</span>
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path fill="currentColor" d="M7 10l5 5 5-5z" />
@@ -66,7 +67,7 @@ export function OrgSwitcher() {
               className="orgs__item"
               onClick={() => switchTo(o.id)}
             >
-              <OrgBadge name={o.name} />
+              <Avatar name={o.name} avatar={o} />
               <span className="orgs__item-text">
                 <span className="orgs__item-name">{o.name}</span>
                 <span className="orgs__item-type">{o.org_type === "personal" ? "Personal" : "Team"}</span>
@@ -142,13 +143,5 @@ function CreateTeamDialog({ onClose, onCreated }: { onClose: () => void; onCreat
       </p>
       <TextField label="Team name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={255} />
     </Dialog>
-  );
-}
-
-export function OrgBadge({ name, size = 28 }: { name: string; size?: number }) {
-  return (
-    <span className="org-badge" style={{ width: size, height: size, fontSize: size * 0.45 }} aria-hidden="true">
-      {name[0]?.toUpperCase()}
-    </span>
   );
 }

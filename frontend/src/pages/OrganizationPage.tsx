@@ -12,11 +12,12 @@ import {
   useSetMemberRole,
 } from "../api/queries";
 import { useUser } from "../auth/AuthProvider";
+import { AvatarDialog } from "../components/AvatarDialog";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Dialog } from "../components/Dialog";
-import { OrgBadge } from "../components/OrgSwitcher";
+import { HeadAvatar } from "../components/HeadAvatar";
 import { SelectField } from "../components/SelectField";
 import { TextField } from "../components/TextField";
 import { useSave } from "../components/useSave";
@@ -29,6 +30,7 @@ const RANK: Record<MemberRole, number> = { member: 0, admin: 1, owner: 2 };
 
 type Modal =
   | { kind: "rename" }
+  | { kind: "avatar" }
   | { kind: "add" }
   | { kind: "remove"; member: OrgMember }
   | { kind: "leave" }
@@ -67,7 +69,12 @@ function OrganizationSettings({ org }: { org: Organization }) {
   return (
     <div className="page">
       <div className="page__head">
-        <OrgBadge name={org.name} size={56} />
+        <HeadAvatar
+          name={org.name}
+          avatar={org}
+          editable={myRank >= RANK.admin}
+          onEdit={() => setModal({ kind: "avatar" })}
+        />
         <div className="page__heading">
           <h1 className="page__title">{org.name}</h1>
           <p className="page__subtitle">
@@ -206,6 +213,9 @@ function OrganizationSettings({ org }: { org: Organization }) {
       )}
 
       {modal?.kind === "rename" && <RenameDialog org={org} onClose={close} />}
+      {modal?.kind === "avatar" && (
+        <AvatarDialog kind="organization" id={org.id} name={org.name} avatar={org} onClose={close} />
+      )}
       {modal?.kind === "add" && <AddMemberDialog orgId={org.id} canGrantOwner={myRank === RANK.owner} onClose={close} />}
       {modal?.kind === "remove" && (
         <RemoveMember orgId={org.id} userId={user.id} member={modal.member} onClose={close} onDone={close} />
