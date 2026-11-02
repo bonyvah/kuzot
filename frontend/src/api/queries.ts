@@ -7,6 +7,7 @@ import {
   type AvatarOwner,
   type JobStatus,
   type MemberRole,
+  type UrlChanges,
   type UrlInput,
   type WorkspaceInput,
 } from "./monitoring";
@@ -211,8 +212,7 @@ export function useAddUrl(competitorId: string) {
 export function useUpdateUrl(competitorId: string) {
   const refresh = useRefreshCompetitor(competitorId);
   return useMutation({
-    mutationFn: ({ id, ...changes }: { id: string; scrape_interval_minutes?: number; is_active?: boolean }) =>
-      monitoringApi.updateUrl(id, changes),
+    mutationFn: ({ id, ...changes }: UrlChanges & { id: string }) => monitoringApi.updateUrl(id, changes),
     onSuccess: refresh,
   });
 }

@@ -1,0 +1,39 @@
+.interval__custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.interval__every {
+  color: var(--text-secondary);
+}
+
+.interval__amount,
+.interval__unit {
+  height: 44px;
+  padding: 0 12px;
+  background: var(--field-bg, var(--surface));
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-field);
+}
+
+.interval__amount {
+  width: 88px;
+}
+
+.interval__amount:focus,
+.interval__unit:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.interval--error .interval__amount {
+  border-color: var(--error);
+}
+
+.interval .field__error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--error);
+}

@@ -19,7 +19,7 @@ import { CompetitorDialog } from "../components/CompetitorDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { JobHistory } from "../components/JobHistory";
 import { IntervalDialog, UrlDialog } from "../components/UrlDialog";
-import { urlTypeLabel } from "../components/urlForm";
+import { pageTypeName } from "../components/urlForm";
 import { formatDate, formatInterval, timeAgo } from "../format";
 import "./Page.css";
 
@@ -198,7 +198,7 @@ function UrlTable({ competitorId, urls, selectedId, onSelect, onEditInterval, on
                     {url.url}
                   </a>
                 </td>
-                <td>{urlTypeLabel(url.url_type)}</td>
+                <td>{pageTypeName(url)}</td>
                 <td>
                   <Button variant="text" onClick={() => onEditInterval(url)} aria-label={`Change check frequency for ${url.url}`}>
                     {formatInterval(url.scrape_interval_minutes)}

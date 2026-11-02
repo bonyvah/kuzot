@@ -1,11 +1,12 @@
 import { useState } from "react";
 
-import type { UrlInput, UrlType } from "../api/monitoring";
+import type { UrlInput } from "../api/monitoring";
 import { Dialog } from "./Dialog";
-import { SelectField } from "./SelectField";
+import { IntervalField } from "./IntervalField";
+import { defaultPageSettings, PageFields, pageSettingsErrors } from "./PageFields";
 import { TextField } from "./TextField";
 import { useSave } from "./useSave";
-import { INTERVAL_OPTIONS, URL_TYPE_OPTIONS, urlError } from "./urlForm";
+import { intervalError, urlError } from "./urlForm";
 
 interface UrlDialogProps {
   onSave: (input: UrlInput) => Promise<void>;
@@ -14,17 +15,21 @@ interface UrlDialogProps {
 
 export function UrlDialog({ onSave, onClose }: UrlDialogProps) {
   const [url, setUrl] = useState("");
-  const [urlType, setUrlType] = useState<UrlType>("pricing");
-  const [interval, setInterval] = useState("60");
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [page, setPage] = useState(() => defaultPageSettings("pricing"));
+  const [errors, setErrors] = useState<{ url?: string | null; label?: string | null; interval?: string | null }>({});
   const save = useSave(onSave);
 
   const submit = () => {
     const value = url.trim();
-    const problem = urlError(value);
-    setFieldError(problem);
-    if (problem) return;
-    save.run({ url: value, url_type: urlType, scrape_interval_minutes: Number(interval) });
+    const next = { url: urlError(value), ...pageSettingsErrors(page) };
+    setErrors(next);
+    if (next.url || next.label || next.interval) return;
+    save.run({
+      url: value,
+      url_type: page.urlType,
+      label: page.urlType === "other" ? page.label.trim() : null,
+      scrape_interval_minutes: page.interval,
+    });
   };
 
   return (
@@ -43,18 +48,10 @@ export function UrlDialog({ onSave, onClose }: UrlDialogProps) {
         inputMode="url"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        error={fieldError}
+        error={errors.url}
         autoFocus
       />
-      <div className="dialog__row">
-        <SelectField
-          label="Page type"
-          value={urlType}
-          onChange={(e) => setUrlType(e.target.value as UrlType)}
-          options={URL_TYPE_OPTIONS}
-        />
-        <SelectField label="Check" value={interval} onChange={(e) => setInterval(e.target.value)} options={INTERVAL_OPTIONS} />
-      </div>
+      <PageFields value={page} onChange={setPage} errors={errors} />
     </Dialog>
   );
 }
@@ -66,24 +63,22 @@ export function IntervalDialog({
   onClose,
 }: {
   current: number | null;
-  onSave: (minutes: number) => Promise<void>;
+  onSave: (minutes: number | null) => Promise<void>;
   onClose: () => void;
 }) {
-  const known = INTERVAL_OPTIONS.some((o) => o.value === String(current));
-  const options = known || !current ? INTERVAL_OPTIONS : [{ value: String(current), label: `Every ${current} min` }, ...INTERVAL_OPTIONS];
-  const [interval, setInterval] = useState(String(current ?? 60));
+  const [interval, setInterval] = useState(current);
+  const [error, setError] = useState<string | null>(null);
   const save = useSave(onSave);
 
+  const submit = () => {
+    const problem = intervalError(interval);
+    setError(problem);
+    if (!problem) save.run(interval);
+  };
+
   return (
-    <Dialog
-      open
-      title="Check frequency"
-      onClose={onClose}
-      onSubmit={() => save.run(Number(interval))}
-      busy={save.busy}
-      error={save.error}
-    >
-      <SelectField label="Check" value={interval} onChange={(e) => setInterval(e.target.value)} options={options} />
+    <Dialog open title="Check frequency" onClose={onClose} onSubmit={submit} busy={save.busy} error={save.error}>
+      <IntervalField value={interval} onChange={setInterval} error={error} />
     </Dialog>
   );
 }

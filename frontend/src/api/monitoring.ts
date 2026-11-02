@@ -40,7 +40,18 @@ export interface Workspace extends Avatar {
   updated_at: string;
 }
 
-export const URL_TYPES = ["homepage", "pricing", "blog", "docs", "changelog"] as const;
+export const URL_TYPES = [
+  "homepage",
+  "pricing",
+  "blog",
+  "docs",
+  "changelog",
+  "instagram",
+  "telegram",
+  "facebook",
+  "x",
+  "other",
+] as const;
 export type UrlType = (typeof URL_TYPES)[number];
 
 export interface MonitoredUrl {
@@ -48,6 +59,8 @@ export interface MonitoredUrl {
   competitor_id: string;
   url: string;
   url_type: UrlType;
+  /** What an "other" page is, e.g. "LinkedIn". */
+  label: string | null;
   scrape_interval_minutes: number | null;
   last_scraped_at: string | null;
   last_content_hash: string | null;
@@ -106,8 +119,12 @@ export interface CompetitorInput {
 export interface UrlInput {
   url: string;
   url_type: UrlType;
+  label: string | null;
+  /** null: manual scrapes only. */
   scrape_interval_minutes: number | null;
 }
+
+export type UrlChanges = Partial<Pick<UrlInput, "url_type" | "label" | "scrape_interval_minutes">> & { is_active?: boolean };
 
 export type AvatarOwner = "organization" | "workspace";
 
@@ -159,12 +176,9 @@ export const monitoringApi = {
 
   addUrl: (competitorId: string, body: UrlInput) =>
     api<MonitoredUrl>(`/competitors/${competitorId}/urls`, { method: "POST", body }),
-  // The backend takes these as query parameters, not a JSON body.
-  updateUrl: (id: string, changes: { scrape_interval_minutes?: number; is_active?: boolean }) => {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(changes)) params.set(key, String(value));
-    return api<MonitoredUrl>(`/monitored-urls/${id}?${params}`, { method: "PATCH" });
-  },
+  // Only the fields sent change; scrape_interval_minutes: null means manual only.
+  updateUrl: (id: string, changes: UrlChanges) =>
+    api<MonitoredUrl>(`/monitored-urls/${id}`, { method: "PATCH", body: changes }),
   deleteUrl: (id: string) => api<{ message: string }>(`/monitored-urls/${id}`, { method: "DELETE" }),
 
   triggerScrape: (urlId: string) => api<ScrapeJob>(`/monitored-urls/${urlId}/trigger`, { method: "POST" }),

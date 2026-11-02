@@ -1,11 +1,11 @@
 import { useState } from "react";
 
-import type { CompetitorInput, UrlInput, UrlType } from "../api/monitoring";
+import type { CompetitorInput, UrlInput } from "../api/monitoring";
 import { Dialog } from "./Dialog";
-import { SelectField } from "./SelectField";
+import { defaultPageSettings, PageFields, pageSettingsErrors } from "./PageFields";
 import { TextField } from "./TextField";
 import { useSave } from "./useSave";
-import { INTERVAL_OPTIONS, URL_TYPE_OPTIONS, urlError } from "./urlForm";
+import { urlError } from "./urlForm";
 
 interface CompetitorDialogProps {
   title: string;
@@ -21,22 +21,34 @@ export function CompetitorDialog({ title, confirmLabel, initial, withFirstUrl, o
   const [name, setName] = useState(initial?.name ?? "");
   const [website, setWebsite] = useState(initial?.website_url ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [urlType, setUrlType] = useState<UrlType>("pricing");
-  const [interval, setInterval] = useState("60");
-  const [fieldErrors, setFieldErrors] = useState<{ name?: string; website?: string }>({});
+  const [page, setPage] = useState(() => defaultPageSettings("homepage"));
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string | null;
+    website?: string | null;
+    label?: string | null;
+    interval?: string | null;
+  }>({});
   const save = useSave(onSave);
 
   const submit = () => {
     const site = website.trim();
     const errors = {
-      name: name.trim() ? undefined : "Enter a name",
-      website: site ? (urlError(site) ?? undefined) : undefined,
+      name: name.trim() ? null : "Enter a name",
+      website: site ? urlError(site) : null,
+      ...(withFirstUrl && site ? pageSettingsErrors(page) : {}),
     };
     setFieldErrors(errors);
-    if (errors.name || errors.website) return;
+    if (Object.values(errors).some(Boolean)) return;
 
     const firstUrl: UrlInput | null =
-      withFirstUrl && site ? { url: site, url_type: urlType, scrape_interval_minutes: Number(interval) || null } : null;
+      withFirstUrl && site
+        ? {
+            url: site,
+            url_type: page.urlType,
+            label: page.urlType === "other" ? page.label.trim() : null,
+            scrape_interval_minutes: page.interval,
+          }
+        : null;
     save.run({ name: name.trim(), website_url: site || null, description: description.trim() || null }, firstUrl);
   };
 
@@ -70,20 +82,7 @@ export function CompetitorDialog({ title, confirmLabel, initial, withFirstUrl, o
       {withFirstUrl && (
         <>
           <p className="dialog__hint">The website is also added as the first monitored page.</p>
-          <div className="dialog__row">
-            <SelectField
-              label="Page type"
-              value={urlType}
-              onChange={(e) => setUrlType(e.target.value as UrlType)}
-              options={URL_TYPE_OPTIONS}
-            />
-            <SelectField
-              label="Check"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value)}
-              options={INTERVAL_OPTIONS}
-            />
-          </div>
+          <PageFields value={page} onChange={setPage} errors={fieldErrors} />
         </>
       )}
     </Dialog>
