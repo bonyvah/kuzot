@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from app.core.auth_dependencies import CurrentUser, require_org_role
 from app.crud.organization import organization_crud
@@ -7,7 +7,9 @@ from app.crud.workspace import workspace_crud
 from app.db.dependencies import DBSession
 from app.models.org_member import MemberRole
 from app.schemas.common import MessageResponse
+from app.schemas.organization import AvatarEmoji
 from app.schemas.workspace import WorkspaceCreate, WorkspacePublic, WorkspaceUpdate
+from app.services import avatars
 
 router = APIRouter(tags=["Workspaces"])
 
@@ -77,5 +79,48 @@ async def delete_workspace(
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.ADMIN, db)
+    await avatars.delete_files(workspace)
     await workspace_crud.delete(db, workspace)
     return MessageResponse(message="Workspace deleted successfully")
+
+
+# ── Avatar ─────────────────────────────────────────────────────────────────────
+
+async def _workspace_for_admin(workspace_id: UUID, current_user: CurrentUser, db: DBSession):
+    workspace = await workspace_crud.get_by_id(db, workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    await require_org_role(current_user, workspace.org_id, MemberRole.ADMIN, db)
+    return workspace
+
+
+@router.put("/workspaces/{workspace_id}/avatar", response_model=WorkspacePublic)
+async def set_workspace_emoji(
+    workspace_id: UUID,
+    body: AvatarEmoji,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    workspace = await _workspace_for_admin(workspace_id, current_user, db)
+    return await avatars.set_emoji(db, workspace, body.emoji)
+
+
+@router.post("/workspaces/{workspace_id}/avatar/image", response_model=WorkspacePublic)
+async def upload_workspace_image(
+    workspace_id: UUID,
+    file: UploadFile,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    workspace = await _workspace_for_admin(workspace_id, current_user, db)
+    return await avatars.set_image(db, workspace, file, prefix="workspaces")
+
+
+@router.delete("/workspaces/{workspace_id}/avatar", response_model=WorkspacePublic)
+async def clear_workspace_avatar(
+    workspace_id: UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    workspace = await _workspace_for_admin(workspace_id, current_user, db)
+    return await avatars.clear(db, workspace)

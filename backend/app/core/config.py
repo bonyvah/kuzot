@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     AWS_ENDPOINT_URL: str | None = None   # http://localhost:4566 locally, None in prod
     AWS_REGION: str = "us-east-1"
     S3_BUCKET_REPORTS: str = "kuzot-reports"
+    S3_BUCKET_MEDIA: str = "kuzot-media"  # avatars and other user uploads
+    # Where browsers fetch media from: the Vite proxy in dev, a CDN in prod
+    MEDIA_BASE_URL: str = "/media"
 
     # ── App ─────────────────────────────────────────────────────────
     APP_ENV: Literal["dev", "prod", "test"] = "dev"

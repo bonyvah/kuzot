@@ -35,6 +35,9 @@ class Organization(Base):
     )
     name: Mapped[str] = mapped_column(String(255))
     slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    # avatar: an emoji or an uploaded image (S3 key), never both
+    avatar_emoji: Mapped[str | None] = mapped_column(String(32))
+    avatar_key: Mapped[str | None] = mapped_column(String(255))
     org_type: Mapped[OrgType] = mapped_column(
         SAEnum(OrgType, native_enum=False),
         default=OrgType.PERSONAL,

@@ -1,14 +1,16 @@
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from app.core.auth_dependencies import CurrentUser, require_org_role
 from app.crud.organization import organization_crud
 from app.crud.org_member import org_member_crud
 from app.crud.user import user_crud
+from app.crud.workspace import workspace_crud
 from app.db.dependencies import DBSession
 from app.models.org_member import MemberRole
 from app.schemas.common import MessageResponse
 from app.schemas.organization import (
+    AvatarEmoji,
     InviteMemberRequest,
     OrgCreate,
     OrgMemberPublic,
@@ -18,6 +20,7 @@ from app.schemas.organization import (
 )
 
 from app.models.organization import OrgType
+from app.services import avatars
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
@@ -90,8 +93,53 @@ async def delete_organization(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Personal organizations cannot be deleted",
         )
+    for workspace in await workspace_crud.list_by_org(db, org_id=org.id):
+        await avatars.delete_files(workspace)
+    await avatars.delete_files(org)
     await organization_crud.delete(db, org)
     return MessageResponse(message="Organization deleted successfully")
+
+
+# ── Avatar ─────────────────────────────────────────────────────────────────────
+
+async def _org_for_admin(org_id: UUID, current_user: CurrentUser, db: DBSession):
+    await require_org_role(current_user, org_id, MemberRole.ADMIN, db)
+    org = await organization_crud.get_by_id(db, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org
+
+
+@router.put("/{org_id}/avatar", response_model=OrgPublic)
+async def set_organization_emoji(
+    org_id: UUID,
+    body: AvatarEmoji,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    org = await _org_for_admin(org_id, current_user, db)
+    return await avatars.set_emoji(db, org, body.emoji)
+
+
+@router.post("/{org_id}/avatar/image", response_model=OrgPublic)
+async def upload_organization_image(
+    org_id: UUID,
+    file: UploadFile,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    org = await _org_for_admin(org_id, current_user, db)
+    return await avatars.set_image(db, org, file, prefix="orgs")
+
+
+@router.delete("/{org_id}/avatar", response_model=OrgPublic)
+async def clear_organization_avatar(
+    org_id: UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    org = await _org_for_admin(org_id, current_user, db)
+    return await avatars.clear(db, org)
 
 
 # ── Members Management ─────────────────────────────────────────────────────────

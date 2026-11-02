@@ -26,6 +26,9 @@ class Workspace(Base):
     )
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
+    # avatar: an emoji or an uploaded image (S3 key), never both
+    avatar_emoji: Mapped[str | None] = mapped_column(String(32))
+    avatar_key: Mapped[str | None] = mapped_column(String(255))
     # SET NULL: workspace survives if creator deletes their account
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
