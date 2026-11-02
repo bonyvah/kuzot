@@ -36,7 +36,13 @@
 .shell__nav {
   grid-area: nav;
   padding: 8px 16px 8px 0;
+  overflow-x: hidden;
   overflow-y: auto;
+}
+
+.shell--collapsed .shell__nav {
+  /* 8px margin + 56px items fill the 72px rail exactly. */
+  padding-right: 8px;
 }
 
 .shell__main {

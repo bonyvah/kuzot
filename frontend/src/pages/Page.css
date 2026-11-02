@@ -241,7 +241,14 @@ a.card:hover {
   gap: 4px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--outline-variant);
+  /* Scroll sideways only when the tabs don't fit, without a visible bar. */
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tabs__tab {
@@ -267,7 +274,7 @@ a.card:hover {
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: -1px;
+  bottom: 0;
   height: 3px;
   border-radius: 3px 3px 0 0;
   background: var(--primary);
