@@ -1,0 +1,85 @@
+.md {
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: 24px 0 8px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.md h2 {
+  font-size: 20px;
+}
+
+.md h3 {
+  font-size: 17px;
+}
+
+.md h4,
+.md h5,
+.md h6 {
+  font-size: 15px;
+}
+
+.md p,
+.md ul,
+.md ol {
+  margin: 0 0 12px;
+}
+
+.md ul,
+.md ol {
+  padding-left: 24px;
+}
+
+.md li + li {
+  margin-top: 4px;
+}
+
+.md code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-highest);
+  font-size: 0.9em;
+}
+
+.cite {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 18px;
+  margin: 0 1px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  vertical-align: 2px;
+  cursor: pointer;
+}
+
+.cite:hover,
+.cite--active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.cite--missing {
+  background: var(--surface-highest);
+  color: var(--text-secondary);
+  cursor: default;
+}

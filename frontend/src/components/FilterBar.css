@@ -1,0 +1,61 @@
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filters__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.filters__legend {
+  float: left;
+  width: 96px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Material 3 filter chip. */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.filter-chip:hover {
+  background: var(--hover);
+}
+
+.filter-chip--on {
+  padding-left: 8px;
+  border-color: transparent;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.filter-chip--on:hover {
+  background: color-mix(in srgb, var(--primary-container), var(--on-primary-container) 8%);
+}
+
+@media (max-width: 720px) {
+  .filters__legend {
+    float: none;
+    width: 100%;
+  }
+}

@@ -92,3 +92,15 @@
   background: var(--field-bg, var(--surface));
   cursor: pointer;
 }
+
+.field--multiline .field__input {
+  height: auto;
+  min-height: 96px;
+  padding: 16px 15px;
+  line-height: 24px;
+  resize: vertical;
+}
+
+.field--multiline .field__input:focus {
+  padding: 15px 14px;
+}
