@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 
 // In dev, the API is proxied so the browser talks to one origin (no CORS).
 const API_TARGET = process.env.VITE_API_PROXY ?? "http://localhost:8000";
+// Uploaded files (avatars) live in the S3 bucket, served as /media/<key>.
+const MEDIA_TARGET = process.env.VITE_MEDIA_PROXY ?? "http://localhost:9000/kuzot-media";
 
 export default defineConfig({
   plugins: [react()],
@@ -11,6 +13,7 @@ export default defineConfig({
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },
       "/health": { target: API_TARGET, changeOrigin: true },
+      "/media": { target: MEDIA_TARGET, changeOrigin: true, rewrite: (path) => path.replace(/^\/media/, "") },
     },
   },
 });
