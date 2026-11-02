@@ -97,7 +97,10 @@ def pick(
             continue
         seen.add(i)
         c = candidates[i]
-        c.url_type = URLType(item["url_type"])
+        chosen = URLType(item["url_type"])
+        # the address is a stronger signal than "other"
+        if chosen != URLType.OTHER or c.url_type in (URLType.OTHER, URLType.HOMEPAGE):
+            c.url_type = chosen
         c.label = (item.get("label") or "").strip()[:100] or None if c.url_type == URLType.OTHER else None
         picked.append((c, item.get("reason", "")[:200]))
     return picked

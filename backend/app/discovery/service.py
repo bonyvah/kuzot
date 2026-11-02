@@ -123,11 +123,20 @@ def discover(
     # 2. channels the user told us about
     wanted: list[URLType] = []
     for hint in hints:
-        if hint.value:
-            kind = (hint.url_type, hint.label) if hint.url_type in (URLType.OTHER, URLType.HOMEPAGE) else None
-            add(from_hint(hint.url_type, hint.value), "hint", hint.label or "", kind)
-        else:
+        if not hint.value:
             wanted.append(hint.url_type)
+            continue
+        url = from_hint(hint.url_type, hint.value)
+        if not url:
+            continue
+        if hint.url_type == URLType.HOMEPAGE:
+            # "another web page": typed by its own address (pricing, blog...)
+            kind = classify(url, _site_host(url))
+        elif hint.url_type == URLType.OTHER:
+            kind = (URLType.OTHER, hint.label or _site_host(url))
+        else:
+            kind = (hint.url_type, None)
+        add(url, "hint", hint.label or "", kind)
 
     # 3. web search for what the site doesn't link
     queries = [f"{name} {looking_for}"] if looking_for else []

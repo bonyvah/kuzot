@@ -29,6 +29,9 @@ def test_classify_and_normalize():
     assert classify("https://www.linkedin.com/company/acme", host) == (URLType.OTHER, "LinkedIn")
     assert classify("https://x.com/intent/tweet", host) is None
     assert classify("https://other.com/pricing", host) is None
+    assert classify("https://acme.io/catalog/bikes.html", host) == (URLType.PRICING, None)
+    assert classify("https://acme.io/order.html", host) is None
+    assert classify("https://acme.io/legal/terms", host) is None
     assert normalize("https://Acme.io/a?utm_source=x&id=2#top") == "https://acme.io/a?id=2"
     assert normalize("javascript:void(0)") is None
     assert from_hint(URLType.TELEGRAM, "@acme") == "https://t.me/s/acme"
@@ -82,9 +85,14 @@ def test_search_and_exclusions(site, monkeypatch):
 
 
 def test_model_can_only_pick_listed_candidates(monkeypatch):
-    cands = [Candidate("https://acme.io/", URLType.HOMEPAGE), Candidate("https://acme.io/plans", URLType.OTHER)]
+    cands = [
+        Candidate("https://acme.io/", URLType.HOMEPAGE),
+        Candidate("https://acme.io/plans", URLType.OTHER),
+        Candidate("https://acme.io/blog", URLType.BLOG),
+    ]
     answer = {"pages": [
         {"index": 1, "url_type": "pricing", "label": "ignored", "reason": "plans page"},
+        {"index": 2, "url_type": "other", "label": "Blog", "reason": "articles"},
         {"index": 7, "url_type": "blog", "label": None, "reason": "made up"},
         {"index": 1, "url_type": "blog", "label": None, "reason": "duplicate"},
     ]}
@@ -98,7 +106,10 @@ def test_model_can_only_pick_listed_candidates(monkeypatch):
     monkeypatch.setattr(select, "get_openai", lambda: type("O", (), {"chat": type("Ch", (), {"completions": Completions})()})())
     picked = select.pick(cands, name="Acme", website=None, description=None, notes=None, looking_for=None)
 
-    assert [(c.url, c.url_type, c.label, r) for c, r in picked] == [("https://acme.io/plans", URLType.PRICING, None, "plans page")]
+    assert [(c.url, c.url_type, c.label, r) for c, r in picked] == [
+        ("https://acme.io/plans", URLType.PRICING, None, "plans page"),
+        ("https://acme.io/blog", URLType.BLOG, None, "articles"),  # address beats "other"
+    ]
 
 
 @pytest.mark.asyncio
@@ -141,3 +152,24 @@ async def test_discover_endpoints(client: AsyncClient, monkeypatch):
         headers={"Authorization": f"Bearer {login.json()['access_token']}"},
     )
     assert other.status_code == 201 and denied.status_code == 403
+
+
+def test_web_and_custom_hints_are_typed(site, monkeypatch):
+    monkeypatch.setattr(service, "pick", lambda *a, **k: [])
+    monkeypatch.setattr(search, "enabled", lambda: False)
+
+    result = discover(
+        name="Acme",
+        website="https://acme.io",
+        hints=[
+            Hint(URLType.HOMEPAGE, "https://shop.example.kg/acme/prices"),
+            Hint(URLType.OTHER, "https://linktr.ee/acme", label="Linktree"),
+            Hint(URLType.OTHER, "https://appstore.example/acme"),
+        ],
+    )
+
+    by_url = {p.url: p for p in result.pages}
+    assert by_url["https://shop.example.kg/acme/prices"].url_type == URLType.PRICING
+    assert by_url["https://linktr.ee/acme"].label == "Linktree"
+    assert by_url["https://appstore.example/acme"].label == "appstore.example"
+    assert all(p.reason == "You added this channel" for p in result.pages)

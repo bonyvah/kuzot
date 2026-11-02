@@ -26,10 +26,19 @@ SOCIAL_HOSTS: dict[str, tuple[URLType, str | None]] = {
 # path hints for pages on the competitor's own site
 PATH_TYPES: list[tuple[re.Pattern, URLType]] = [
     (re.compile(r"/(pricing|prices|plans|tariffs?|price)(/|$|\.)", re.I), URLType.PRICING),
+    # shops: catalogs and delivery fees are where prices live
+    (re.compile(r"/(catalog|catalogue|shop|store|products|delivery|shipping)(/|$|\.)", re.I), URLType.PRICING),
     (re.compile(r"/(changelog|release-notes|releases|whats-new|updates)(/|$|\.)", re.I), URLType.CHANGELOG),
     (re.compile(r"/(blog|news|articles|posts|journal)(/|$|\.)", re.I), URLType.BLOG),
     (re.compile(r"/(docs|documentation|help|guide|kb|support)(/|$|\.)", re.I), URLType.DOCS),
 ]
+
+# site pages never worth monitoring
+_SKIP_PATH = re.compile(
+    r"/(cart|basket|checkout|order|orders|login|log-in|signin|sign-in|signup|sign-up|register|account|"
+    r"privacy|terms|legal|cookies?|careers|jobs|vacancies)(/|$|\.)",
+    re.I,
+)
 
 # social paths that are never a channel page
 _NOT_A_CHANNEL = re.compile(r"^/(share|sharer|intent|login|signup|explore|hashtag|p/|reel/|status/|watch)", re.I)
@@ -72,6 +81,8 @@ def classify(url: str, site_host: str) -> tuple[URLType, str | None] | None:
     if host != site_host and not host.endswith("." + site_host):
         return None
     path = urlsplit(url).path
+    if _SKIP_PATH.search(path):
+        return None
     if host.startswith("docs.") or host.startswith("help."):
         return URLType.DOCS, None
     if host.startswith("blog."):
