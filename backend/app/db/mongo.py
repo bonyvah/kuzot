@@ -26,6 +26,9 @@ async def connect_to_mongo() -> None:
     )
     await mongodb.db.page_chunks.create_index([("monitored_url_id", 1)])
     await mongodb.db.reports.create_index([("workspace_id", 1), ("created_at", -1)])
+    # insight feeds: newest first per org, workspace or competitor
+    for scope in ("org_id", "workspace_id", "competitor_id"):
+        await mongodb.db.insights.create_index([(scope, 1), ("detected_at", -1), ("_id", -1)])
 
 
 async def close_mongo_connection() -> None:

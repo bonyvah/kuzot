@@ -63,12 +63,17 @@ class FakeCollection:
         for d in self.find(query):
             d.update(update["$set"])
 
+    def replace_one(self, query, doc, upsert=False):
+        self.docs = [d for d in self.docs if not _matches(d, query)]
+        self.docs.append({**query, **doc})
+
 
 class FakeMongo:
     def __init__(self):
         self.page_snapshots = FakeCollection()
         self.change_events = FakeCollection()
         self.page_chunks = FakeCollection()
+        self.insights = FakeCollection()
 
 
 class FakeVectorStore:
@@ -198,7 +203,7 @@ TEAM = "Team plan: 50 dollars per month for ten members and SSO. " * 9
 ENTERPRISE = "Enterprise plan: custom pricing, audit logs, dedicated support. " * 7
 
 
-def change(mongo, url_id, paragraphs, at) -> str:
+def change(mongo, url_id, paragraphs, at, previous_hash=None) -> str:
     snapshot_id = mongo.page_snapshots.insert_one(
         {
             "monitored_url_id": url_id,
@@ -212,6 +217,7 @@ def change(mongo, url_id, paragraphs, at) -> str:
             "monitored_url_id": url_id,
             "snapshot_id": snapshot_id,
             "detected_at": at,
+            "previous_hash": previous_hash,
             "embedding_status": "pending",
         }
     )
@@ -445,3 +451,51 @@ def _fake_response(status: int) -> httpx2.Response:
     return httpx2.Response(
         status, request=httpx2.Request("POST", "https://api.openai.com")
     )
+
+
+def test_first_scrape_is_not_an_insight(mongo, store, embedded, tenant):
+    result = run_embedding(change(mongo, tenant["url_id"], [PRO.strip()], T0))
+
+    assert result["insight_id"] is None
+    assert mongo.insights.docs == []
+
+
+def test_change_becomes_an_insight_with_added_and_removed_text(
+    mongo, store, embedded, tenant
+):
+    url_id = tenant["url_id"]
+    run_embedding(change(mongo, url_id, [PRO.strip(), TEAM.strip()], T0))
+    later = T0 + timedelta(hours=1)
+    event_id = change(
+        mongo, url_id, [PRO.strip(), ENTERPRISE.strip()], later, previous_hash="h1"
+    )
+
+    result = run_embedding(event_id)
+
+    assert result["insight_id"] == event_id
+    insight = mongo.insights.find_one({"_id": ObjectId(event_id)})
+    assert insight["org_id"] == tenant["org_id"]
+    assert insight["workspace_id"] == tenant["ws_id"]
+    assert insight["url_type"] == "pricing"
+    assert insight["detected_at"] == later
+    assert any("Enterprise" in t for t in insight["added"])
+    assert any("Team plan" in t for t in insight["removed"])
+    assert not any("Pro plan" in t for t in insight["added"] + insight["removed"])
+    assert insight["headline"] == "Pricing page changed"
+    assert insight["headline_status"] == "pending"
+
+
+def test_headline_task_is_queued_for_insights(monkeypatch):
+    queued = []
+    monkeypatch.setattr(
+        embedding_tasks, "run_embedding", lambda event_id: {"status": "done", "insight_id": "abc"}
+    )
+    monkeypatch.setattr(
+        embedding_tasks.write_insight_headline,
+        "apply_async",
+        lambda args, ignore_result: queued.append(args),
+    )
+
+    process_change_event.run("ev1")
+
+    assert queued == [["abc"]]

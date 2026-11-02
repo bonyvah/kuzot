@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.embedding import vector_store
 from app.embedding.chunking import chunk_units, snapshot_units
 from app.embedding.embedder import embed_texts
+from app.insights.builder import build_insight
 from app.models import Competitor, MonitoredURL, Workspace
 from app.workers.db import SyncSession, get_mongo_db, get_redis
 from app.workers.pipeline import utcnow
@@ -65,6 +66,7 @@ def _tenant(monitored_url_id: str) -> dict | None:
                 Competitor.id,
                 MonitoredURL.url,
                 MonitoredURL.url_type,
+                MonitoredURL.label,
             )
             .join(Competitor, Competitor.id == MonitoredURL.competitor_id)
             .join(Workspace, Workspace.id == Competitor.workspace_id)
@@ -79,6 +81,7 @@ def _tenant(monitored_url_id: str) -> dict | None:
         "monitored_url_id": monitored_url_id,
         "url": row[3],
         "url_type": str(row[4]),
+        "label": row[5],
     }
 
 
@@ -185,10 +188,32 @@ def _embed_event(oid: ObjectId) -> dict:
         )
 
     stats = {"added": len(new), "removed": len(removed), "returned": len(returned)}
+    insight_id = _record_insight(oid, event, tenant, chunks, new, returned, removed, seen_at)
     _set_event(
         oid, embedding_status="done", embedded_at=utcnow(), embedding_stats=stats
     )
-    return {"status": "done", **stats}
+    return {"status": "done", **stats, "insight_id": insight_id}
+
+
+def _record_insight(oid, event, tenant, chunks, new, returned, removed, seen_at) -> str | None:
+    """Store the change as an insight, keyed by the event so reruns overwrite it.
+
+    The first scrape of a page has nothing to compare against, so it isn't one.
+    """
+    if not event.get("previous_hash") or not (new or returned or removed):
+        return None
+    mongo = get_mongo_db()
+    removed_texts = [
+        doc["text"]
+        for doc in mongo.page_chunks.find(
+            {"monitored_url_id": tenant["monitored_url_id"], "chunk_hash": {"$in": removed}},
+            {"text": 1},
+        )
+    ]
+    added_texts = [c.text for c in new] + [chunks[h].text for h in returned]
+    insight = build_insight(tenant, added_texts, removed_texts, seen_at)
+    mongo.insights.replace_one({"_id": oid}, insight, upsert=True)
+    return str(oid)
 
 
 def pinecone_record(doc: dict) -> dict:
