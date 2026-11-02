@@ -8,7 +8,10 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
-import { WorkspacePage } from "./pages/WorkspacePage";
+import { WorkspaceCompetitors, WorkspaceLayout } from "./pages/WorkspacePage";
+import { ReportPage } from "./pages/ReportPage";
+import { ReportsPage } from "./pages/ReportsPage";
+import { SearchPage } from "./pages/SearchPage";
 
 export const router = createBrowserRouter([
   {
@@ -25,7 +28,16 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: "workspaces/:workspaceId", element: <WorkspacePage /> },
+          {
+            path: "workspaces/:workspaceId",
+            element: <WorkspaceLayout />,
+            children: [
+              { index: true, element: <WorkspaceCompetitors /> },
+              { path: "search", element: <SearchPage /> },
+              { path: "reports", element: <ReportsPage /> },
+            ],
+          },
+          { path: "reports/:reportId", element: <ReportPage /> },
           { path: "competitors/:competitorId", element: <CompetitorPage /> },
         ],
       },

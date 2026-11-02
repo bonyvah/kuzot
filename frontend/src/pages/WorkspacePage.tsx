@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, NavLink, Outlet, useNavigate, useOutletContext, useParams } from "react-router";
 
 import { errorText } from "../api/client";
-import type { Competitor } from "../api/monitoring";
+import type { Competitor, Workspace } from "../api/monitoring";
 import {
   useCompetitors,
   useCreateCompetitor,
@@ -18,15 +18,12 @@ import { WorkspaceDialog } from "../components/WorkspaceDialog";
 import { hostname, timeAgo } from "../format";
 import "./Page.css";
 
-type Modal = "edit" | "delete" | "add" | null;
-
-/** One workspace: its competitors and how fresh their data is. */
-export function WorkspacePage() {
+/** Workspace header and tabs; the tab pages render in the outlet. */
+export function WorkspaceLayout() {
   const { workspaceId = "" } = useParams();
   const navigate = useNavigate();
   const workspace = useWorkspace(workspaceId);
-  const competitors = useCompetitors(workspaceId);
-  const [modal, setModal] = useState<Modal>(null);
+  const [modal, setModal] = useState<"edit" | "delete" | null>(null);
 
   if (workspace.isLoading) return <p className="page page__note">Loading…</p>;
   if (workspace.error || !workspace.data) {
@@ -34,6 +31,7 @@ export function WorkspacePage() {
   }
   const ws = workspace.data;
   const close = () => setModal(null);
+  const base = `/workspaces/${ws.id}`;
 
   return (
     <div className="page">
@@ -57,44 +55,72 @@ export function WorkspacePage() {
         </div>
       </div>
 
-      <section className="page__section" aria-labelledby="competitors-title">
-        <div className="page__section-head">
-          <h2 id="competitors-title" className="page__section-title">
-            Competitors{competitors.data ? ` (${competitors.data.total})` : ""}
-          </h2>
-          <Button onClick={() => setModal("add")}>Add competitor</Button>
-        </div>
+      <nav className="tabs" aria-label="Workspace sections">
+        <NavLink to={base} end className="tabs__tab">
+          Competitors
+        </NavLink>
+        <NavLink to={`${base}/search`} className="tabs__tab">
+          Search
+        </NavLink>
+        <NavLink to={`${base}/reports`} className="tabs__tab">
+          Reports
+        </NavLink>
+      </nav>
 
-        {competitors.isLoading && <p className="page__note">Loading competitors…</p>}
-        {competitors.error && <p className="page__error">{errorText(competitors.error)}</p>}
-        {competitors.data?.items.length === 0 && (
-          <div className="blank">
-            <h2 className="blank__title">No competitors yet</h2>
-            <p>Add a competitor and the pages you want watched for changes.</p>
-            <Button onClick={() => setModal("add")}>Add competitor</Button>
-          </div>
-        )}
-        {!!competitors.data?.items.length && (
-          <div className="cards">
-            {competitors.data.items.map((c) => (
-              <CompetitorCard key={c.id} competitor={c} />
-            ))}
-          </div>
-        )}
-      </section>
+      <Outlet context={ws satisfies Workspace} />
 
       {modal === "edit" && <EditWorkspace id={ws.id} initial={ws} onClose={close} />}
       {modal === "delete" && (
         <DeleteWorkspace id={ws.id} orgId={ws.org_id} name={ws.name} onClose={close} onDeleted={() => navigate("/")} />
       )}
-      {modal === "add" && (
+    </div>
+  );
+}
+
+/** The workspace the surrounding <WorkspaceLayout> loaded. */
+export const useCurrentWorkspace = () => useOutletContext<Workspace>();
+
+/** Competitors tab: the workspace's competitors and how fresh their data is. */
+export function WorkspaceCompetitors() {
+  const ws = useCurrentWorkspace();
+  const navigate = useNavigate();
+  const competitors = useCompetitors(ws.id);
+  const [adding, setAdding] = useState(false);
+
+  return (
+    <section className="page__section" aria-labelledby="competitors-title">
+      <div className="page__section-head">
+        <h2 id="competitors-title" className="page__section-title">
+          Competitors{competitors.data ? ` (${competitors.data.total})` : ""}
+        </h2>
+        <Button onClick={() => setAdding(true)}>Add competitor</Button>
+      </div>
+
+      {competitors.isLoading && <p className="page__note">Loading competitors…</p>}
+      {competitors.error && <p className="page__error">{errorText(competitors.error)}</p>}
+      {competitors.data?.items.length === 0 && (
+        <div className="blank">
+          <h2 className="blank__title">No competitors yet</h2>
+          <p>Add a competitor and the pages you want watched for changes.</p>
+          <Button onClick={() => setAdding(true)}>Add competitor</Button>
+        </div>
+      )}
+      {!!competitors.data?.items.length && (
+        <div className="cards">
+          {competitors.data.items.map((c) => (
+            <CompetitorCard key={c.id} competitor={c} />
+          ))}
+        </div>
+      )}
+
+      {adding && (
         <AddCompetitor
           workspaceId={ws.id}
-          onClose={close}
+          onClose={() => setAdding(false)}
           onCreated={(c) => navigate(`/competitors/${c.id}`)}
         />
       )}
-    </div>
+    </section>
   );
 }
 
