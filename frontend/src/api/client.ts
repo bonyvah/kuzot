@@ -124,3 +124,9 @@ function safeStorage<T>(fn: () => T): T | null {
     return null;
   }
 }
+
+/** Message to show for a failed request or mutation. */
+export function errorText(err: unknown): string {
+  if (err instanceof ApiError) return err.message;
+  return "Something went wrong. Check your connection and try again.";
+}
