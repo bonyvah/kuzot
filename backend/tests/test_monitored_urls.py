@@ -104,10 +104,34 @@ async def test_trigger_returns_503_and_fails_job_when_broker_is_down(
 
 
 @pytest.mark.asyncio
-async def test_each_trigger_enqueues_its_own_job(client: AsyncClient, enqueued):
+async def test_trigger_is_rejected_while_a_scrape_is_in_flight(
+    client: AsyncClient, enqueued
+):
     url_id, headers = await _create_url(client, "twice@example.com")
 
     first = await client.post(f"/api/v1/monitored-urls/{url_id}/trigger", headers=headers)
     second = await client.post(f"/api/v1/monitored-urls/{url_id}/trigger", headers=headers)
 
-    assert enqueued == [first.json()["id"], second.json()["id"]]
+    assert first.status_code == 201
+    assert second.status_code == 409
+    assert "already being scraped" in second.json()["detail"]
+    assert enqueued == [first.json()["id"]]  # no second job, nothing re-sent
+
+
+@pytest.mark.asyncio
+async def test_finished_job_does_not_block_next_trigger(
+    client: AsyncClient, monkeypatch
+):
+    url_id, headers = await _create_url(client, "again@example.com")
+    trigger_url = f"/api/v1/monitored-urls/{url_id}/trigger"
+
+    def broken(job_id):
+        raise ConnectionError("broker down")
+
+    monkeypatch.setattr(monitored_urls_api, "enqueue_scrape", broken)
+    failed = await client.post(trigger_url, headers=headers)
+    monkeypatch.setattr(monitored_urls_api, "enqueue_scrape", lambda job_id: None)
+    retry = await client.post(trigger_url, headers=headers)
+
+    assert failed.status_code == 503  # job marked FAILED: finished, not in flight
+    assert retry.status_code == 201

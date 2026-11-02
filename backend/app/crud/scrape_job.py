@@ -3,7 +3,13 @@ from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.scrape_job import ScrapeJob, ScrapeJobStatus, TriggeredBy
+from app.models.monitored_url import MonitoredURL
+from app.models.scrape_job import (
+    ACTIVE_JOB_WINDOW,
+    ScrapeJob,
+    ScrapeJobStatus,
+    TriggeredBy,
+)
 from app.schemas.scrape_job import ScrapeJobCreate
 
 
@@ -28,6 +34,32 @@ class ScrapeJobCRUD:
             .limit(limit)
         )
         return list(result.scalars().all()), total
+
+    async def lock_url_and_get_active(
+        self, db: AsyncSession, url_id: UUID
+    ) -> ScrapeJob | None:
+        """Lock the URL row, then return its in-flight job if it has one.
+
+        The row lock lasts until the caller commits (create() does) or the
+        session ends, so two concurrent triggers can't both see "no active job".
+        """
+        await db.execute(
+            select(MonitoredURL.id).where(MonitoredURL.id == url_id).with_for_update()
+        )
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - ACTIVE_JOB_WINDOW
+        result = await db.execute(
+            select(ScrapeJob)
+            .where(
+                ScrapeJob.monitored_url_id == url_id,
+                ScrapeJob.status.in_(
+                    [ScrapeJobStatus.PENDING, ScrapeJobStatus.RUNNING]
+                ),
+                ScrapeJob.created_at > cutoff,
+            )
+            .order_by(ScrapeJob.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def create(self, db: AsyncSession, obj_in: ScrapeJobCreate) -> ScrapeJob:
         job = ScrapeJob(

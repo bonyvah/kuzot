@@ -117,6 +117,12 @@ async def trigger_manual_scrape(
 
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
+    if await scrape_job_crud.lock_url_and_get_active(db, url_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This page is already being scraped. Check the job history.",
+        )
+
     job = await scrape_job_crud.create(
         db,
         obj_in=ScrapeJobCreate(monitored_url_id=url_id, triggered_by=TriggeredBy.MANUAL),

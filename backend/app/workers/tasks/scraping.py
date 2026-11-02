@@ -3,6 +3,7 @@ from datetime import timedelta
 from sqlalchemy import exists, literal_column, or_, select
 
 from app.models import MonitoredURL, ScrapeJob, ScrapeJobStatus, TriggeredBy
+from app.models.scrape_job import ACTIVE_JOB_WINDOW
 from app.workers.celery_app import celery_app
 from app.workers.db import SyncSession
 from app.workers.pipeline import BrowserRequired, run_scrape, utcnow
@@ -28,7 +29,7 @@ def dispatch_due_scrapes() -> int:
     has_active_job = exists().where(
         ScrapeJob.monitored_url_id == MonitoredURL.id,
         ScrapeJob.status.in_([ScrapeJobStatus.PENDING, ScrapeJobStatus.RUNNING]),
-        ScrapeJob.created_at > now - timedelta(minutes=30),
+        ScrapeJob.created_at > now - ACTIVE_JOB_WINDOW,
     )
     due_query = select(MonitoredURL.id).where(
         MonitoredURL.is_active.is_(True),

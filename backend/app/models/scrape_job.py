@@ -1,6 +1,6 @@
 import uuid
 import enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import ForeignKey, String, Text, func, Enum
 from sqlalchemy.orm import Mapped, mapped_column
@@ -13,6 +13,11 @@ class ScrapeJobStatus(enum.StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+
+
+# a PENDING/RUNNING job younger than this blocks a new scrape of the same URL;
+# older ones are treated as dead (their worker crashed), so the URL isn't stuck
+ACTIVE_JOB_WINDOW = timedelta(minutes=30)
 
 
 class TriggeredBy(enum.StrEnum):
