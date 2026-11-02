@@ -12,17 +12,24 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.models import Competitor, MonitoredURL, Organization, URLType, Workspace
 from app.workers import embedding_pipeline
-from app.workers.embedding_pipeline import run_embedding
-from app.workers.tasks.embedding import process_change_event
+from app.workers.embedding_pipeline import URLBusy, claim_stale_events, run_embedding
+from app.workers.tasks import embedding as embedding_tasks
+from app.workers.tasks.embedding import process_change_event, requeue_stale_events
 
 
 def _matches(doc: dict, query: dict) -> bool:
     for key, cond in query.items():
+        if key == "$or":
+            if not any(_matches(doc, sub) for sub in cond):
+                return False
+            continue
         value = doc.get(key)
         if isinstance(cond, dict):
             if "$in" in cond and value not in cond["$in"]:
                 return False
             if "$gt" in cond and not (value is not None and value > cond["$gt"]):
+                return False
+            if "$lt" in cond and not (value is not None and value < cond["$lt"]):
                 return False
         elif value != cond:
             return False
@@ -85,6 +92,35 @@ class FakeVectorStore:
             for v in self.namespaces.get(namespace, {}).values()
             if v["metadata"]["is_current"]
         }
+
+
+class FakeLock:
+    def __init__(self, held: set[str], name: str):
+        self.held, self.name = held, name
+
+    def acquire(self) -> bool:
+        if self.name in self.held:
+            return False
+        self.held.add(self.name)
+        return True
+
+    def release(self) -> None:
+        self.held.discard(self.name)
+
+
+class FakeRedis:
+    def __init__(self):
+        self.held: set[str] = set()
+
+    def lock(self, name, timeout=None, blocking=True):
+        return FakeLock(self.held, name)
+
+
+@pytest.fixture(autouse=True)
+def redis(monkeypatch):
+    fake = FakeRedis()
+    monkeypatch.setattr(embedding_pipeline, "get_redis", lambda: fake)
+    return fake
 
 
 @pytest.fixture
@@ -323,6 +359,86 @@ def test_task_marks_event_failed_on_permanent_error(mongo, store, monkeypatch, t
     event = mongo.change_events.find_one({"_id": ObjectId(event_id)})
     assert event["embedding_status"] == "failed"
     assert "AuthenticationError" in event["embedding_error"]
+
+
+def test_busy_url_is_left_pending(mongo, store, embedded, tenant, redis):
+    url_id = tenant["url_id"]
+    event_id = change(mongo, url_id, [PRO.strip()], T0)
+    redis.held.add(f"embedding-lock:{url_id}")  # another worker is on this URL
+
+    with pytest.raises(URLBusy):
+        run_embedding(event_id)
+
+    assert embedded == []
+    event = mongo.change_events.find_one({"_id": ObjectId(event_id)})
+    assert event["embedding_status"] == "pending"
+
+
+def test_lock_is_released_after_success_and_failure(
+    mongo, store, embedded, tenant, redis, monkeypatch
+):
+    run_embedding(change(mongo, tenant["url_id"], [PRO.strip()], T0))
+    assert redis.held == set()
+
+    def boom(texts):
+        raise RuntimeError("embedding down")
+
+    monkeypatch.setattr(embedding_pipeline, "embed_texts", boom)
+    with pytest.raises(RuntimeError):
+        run_embedding(
+            change(mongo, tenant["url_id"], [TEAM.strip()], T0 + timedelta(hours=1))
+        )
+    assert redis.held == set()
+
+
+def test_task_gives_up_on_busy_url_without_failing(
+    mongo, store, embedded, tenant, redis
+):
+    url_id = tenant["url_id"]
+    event_id = change(mongo, url_id, [PRO.strip()], T0)
+    redis.held.add(f"embedding-lock:{url_id}")
+
+    # eager apply runs each retry inline, so this exhausts max_retries at once
+    result = process_change_event.apply(args=[event_id])
+
+    assert result.get() == {"status": "busy"}
+    event = mongo.change_events.find_one({"_id": ObjectId(event_id)})
+    assert event["embedding_status"] == "pending"  # left for the sweeper
+
+
+def test_sweeper_claims_only_lost_pending_events(mongo, tenant):
+    url_id = tenant["url_id"]
+    now = T0 + timedelta(hours=2)
+    lost = change(mongo, url_id, [PRO.strip()], now - timedelta(hours=1))
+    fresh = change(mongo, url_id, [TEAM.strip()], now - timedelta(minutes=5))
+    done = change(mongo, url_id, [ENTERPRISE.strip()], now - timedelta(hours=1))
+    mongo.change_events.update_one(
+        {"_id": ObjectId(done)}, {"$set": {"embedding_status": "done"}}
+    )
+    recently_requeued = change(mongo, url_id, [PRO.strip()], now - timedelta(hours=1))
+    mongo.change_events.update_one(
+        {"_id": ObjectId(recently_requeued)},
+        {"$set": {"requeued_at": now - timedelta(minutes=10)}},
+    )
+
+    assert claim_stale_events(now) == [lost]
+    assert mongo.change_events.find_one({"_id": ObjectId(lost)})["requeued_at"] == now
+    # stamped: the next sweep inside the window leaves it alone
+    assert claim_stale_events(now + timedelta(minutes=5)) == []
+    assert fresh not in claim_stale_events(now + timedelta(minutes=5))
+
+
+def test_requeue_task_sends_each_claimed_event(mongo, tenant, monkeypatch):
+    lost = change(mongo, tenant["url_id"], [PRO.strip()], T0)
+    sent = []
+    monkeypatch.setattr(
+        embedding_tasks.process_change_event,
+        "apply_async",
+        lambda args, **kw: sent.append(args[0]),
+    )
+
+    assert requeue_stale_events.apply().get() == 1
+    assert sent == [lost]
 
 
 def _fake_response(status: int) -> httpx2.Response:

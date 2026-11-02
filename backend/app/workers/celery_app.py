@@ -37,5 +37,9 @@ celery_app.conf.update(
             "task": "app.workers.tasks.scraping.dispatch_due_scrapes",
             "schedule": 60.0,
         },
+        "requeue-stale-embeddings": {
+            "task": "app.workers.tasks.embedding.requeue_stale_events",
+            "schedule": 300.0,
+        },
     },
 )

@@ -1,6 +1,11 @@
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from functools import cache
 
 from bson import ObjectId
+from redis import Redis
+from redis.exceptions import LockError
 from sqlalchemy import select
 
 from app.core.config import settings
@@ -10,6 +15,43 @@ from app.embedding.embedder import embed_texts
 from app.models import Competitor, MonitoredURL, Workspace
 from app.workers.db import SyncSession, get_mongo_db
 from app.workers.pipeline import utcnow
+
+# longer than any real embedding run; only matters if a worker dies holding it
+LOCK_TTL_SECONDS = 600
+# a pending event this old was lost (send failed, or retries ran out while busy):
+# longer than the task's whole retry backoff (30+60+120+240+480s), so a live
+# retry is never re-queued
+STALE_AFTER = timedelta(minutes=30)
+
+
+class URLBusy(Exception):
+    """Another worker is embedding this URL right now: try again shortly."""
+
+
+@cache
+def get_redis() -> Redis:
+    return Redis.from_url(settings.REDIS_URL)
+
+
+@contextmanager
+def url_lock(monitored_url_id: str) -> Iterator[None]:
+    """One embedding run per URL at a time.
+
+    Two runs for the same URL would diff against the same known chunks and
+    collide on the deterministic chunk ids, leaving Pinecone and Mongo out of step.
+    """
+    lock = get_redis().lock(
+        f"embedding-lock:{monitored_url_id}", timeout=LOCK_TTL_SECONDS, blocking=False
+    )
+    if not lock.acquire():
+        raise URLBusy(monitored_url_id)
+    try:
+        yield
+    finally:
+        try:
+            lock.release()
+        except LockError:
+            pass  # TTL ran out first: nothing of ours left to release
 
 
 def _epoch(dt: datetime) -> int:
@@ -53,11 +95,20 @@ def run_embedding(event_id: str) -> dict:
     Chunks are keyed by (url, content hash), so a chunk that survives an edit keeps
     its vector and its first_seen_at. That history is what timeline queries read.
     """
-    mongo = get_mongo_db()
     oid = ObjectId(event_id)
-    event = mongo.change_events.find_one({"_id": oid})
+    event = get_mongo_db().change_events.find_one({"_id": oid})
     if event is None:
         raise ValueError(f"Change event not found for id: {event_id}")
+    with url_lock(event["monitored_url_id"]):
+        return _embed_event(oid)
+
+
+def _embed_event(oid: ObjectId) -> dict:
+    # re-read under the lock: a run that just finished may have changed it
+    mongo = get_mongo_db()
+    event = mongo.change_events.find_one({"_id": oid})
+    if event is None:
+        raise ValueError(f"Change event not found for id: {oid}")
     if event.get("embedding_status") in ("done", "superseded", "skipped"):
         return {"status": event["embedding_status"]}  # redelivered message
 
@@ -167,6 +218,30 @@ def pinecone_record(doc: dict) -> dict:
             "is_current": removed_at is None,
         },
     }
+
+
+def claim_stale_events(now: datetime | None = None) -> list[str]:
+    """Pending events no task is working on; stamp them so the next sweep waits.
+
+    Covers a lost send_task after a scrape and events whose lock retries ran out.
+    Re-queuing one that is somehow still live is safe: the URL lock serializes
+    the runs and a finished event returns early.
+    """
+    mongo = get_mongo_db()
+    now = now or utcnow()
+    cutoff = now - STALE_AFTER
+    stale = mongo.change_events.find(
+        {
+            "embedding_status": "pending",
+            "detected_at": {"$lt": cutoff},
+            "$or": [{"requeued_at": None}, {"requeued_at": {"$lt": cutoff}}],
+        },
+        {"_id": 1},
+    )
+    ids = [doc["_id"] for doc in stale]
+    for oid in ids:
+        _set_event(oid, requeued_at=now)
+    return [str(oid) for oid in ids]
 
 
 def mark_failed(event_id: str, error: str) -> None:
