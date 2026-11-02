@@ -5,12 +5,14 @@ import {
   monitoringApi,
   type CompetitorInput,
   type JobStatus,
+  type MemberRole,
   type UrlInput,
   type WorkspaceInput,
 } from "./monitoring";
 
 export const keys = {
   organizations: ["organizations"] as const,
+  members: (orgId: string) => ["organizations", orgId, "members"] as const,
   workspaces: (orgId: string) => ["organizations", orgId, "workspaces"] as const,
   workspace: (id: string) => ["workspaces", id] as const,
   competitors: (workspaceId: string) => ["workspaces", workspaceId, "competitors"] as const,
@@ -22,6 +24,68 @@ export const isInFlight = (status: JobStatus) => status === "pending" || status 
 
 export function useOrganizations() {
   return useQuery({ queryKey: keys.organizations, queryFn: monitoringApi.organizations });
+}
+
+export function useCreateOrganization() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => monitoringApi.createOrganization(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.organizations, exact: true }),
+  });
+}
+
+export function useRenameOrganization(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => monitoringApi.renameOrganization(id, name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.organizations, exact: true }),
+  });
+}
+
+/** Deleting an org, or leaving it, drops it from the list. */
+function useForgetOrganization() {
+  const qc = useQueryClient();
+  return (id: string) => {
+    qc.removeQueries({ queryKey: ["organizations", id] });
+    return qc.invalidateQueries({ queryKey: keys.organizations, exact: true });
+  };
+}
+
+export function useDeleteOrganization(id: string) {
+  const forget = useForgetOrganization();
+  return useMutation({ mutationFn: () => monitoringApi.deleteOrganization(id), onSuccess: () => forget(id) });
+}
+
+export function useMembers(orgId: string) {
+  return useQuery({ queryKey: keys.members(orgId), queryFn: () => monitoringApi.members(orgId) });
+}
+
+export function useAddMember(orgId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ email, role }: { email: string; role: MemberRole }) => monitoringApi.addMember(orgId, email, role),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.members(orgId) }),
+  });
+}
+
+export function useSetMemberRole(orgId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: MemberRole }) =>
+      monitoringApi.setMemberRole(orgId, userId, role),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.members(orgId) }),
+  });
+}
+
+export function useRemoveMember(orgId: string, currentUserId: string) {
+  const qc = useQueryClient();
+  const forget = useForgetOrganization();
+  return useMutation({
+    mutationFn: (userId: string) => monitoringApi.removeMember(orgId, userId),
+    // Leaving an org removes it from your list; removing someone else only changes members.
+    onSuccess: (_, userId) =>
+      userId === currentUserId ? forget(orgId) : qc.invalidateQueries({ queryKey: keys.members(orgId) }),
+  });
 }
 
 export function useWorkspaces(orgId: string | undefined) {

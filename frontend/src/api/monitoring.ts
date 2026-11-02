@@ -12,6 +12,18 @@ export interface Organization {
   updated_at: string;
 }
 
+export type MemberRole = "owner" | "admin" | "member";
+
+export interface OrgMember {
+  id: string;
+  org_id: string;
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  role: MemberRole;
+  joined_at: string;
+}
+
 export interface Workspace {
   id: string;
   org_id: string;
@@ -94,6 +106,19 @@ export interface UrlInput {
 export const monitoringApi = {
   // The organizations router is mounted with a trailing slash.
   organizations: () => api<Organization[]>("/organizations/"),
+  createOrganization: (name: string) =>
+    api<Organization>("/organizations/", { method: "POST", body: { name, org_type: "team" } }),
+  renameOrganization: (id: string, name: string) =>
+    api<Organization>(`/organizations/${id}`, { method: "PUT", body: { name } }),
+  deleteOrganization: (id: string) => api<{ message: string }>(`/organizations/${id}`, { method: "DELETE" }),
+
+  members: (orgId: string) => api<OrgMember[]>(`/organizations/${orgId}/members`),
+  addMember: (orgId: string, email: string, role: MemberRole) =>
+    api<OrgMember>(`/organizations/${orgId}/members`, { method: "POST", body: { email, role } }),
+  setMemberRole: (orgId: string, userId: string, role: MemberRole) =>
+    api<OrgMember>(`/organizations/${orgId}/members/${userId}`, { method: "PUT", body: { role } }),
+  removeMember: (orgId: string, userId: string) =>
+    api<{ message: string }>(`/organizations/${orgId}/members/${userId}`, { method: "DELETE" }),
 
   workspaces: (orgId: string) => api<Workspace[]>(`/organizations/${orgId}/workspaces`),
   workspace: (id: string) => api<Workspace>(`/workspaces/${id}`),
