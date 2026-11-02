@@ -1,5 +1,5 @@
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.org_member import MemberRole, OrgMember
@@ -21,9 +21,19 @@ class OrgMemberCRUD:
         self, db: AsyncSession, org_id: UUID
     ) -> list[OrgMember]:
         result = await db.execute(
-            select(OrgMember).where(OrgMember.org_id == org_id)
+            select(OrgMember)
+            .where(OrgMember.org_id == org_id)
+            .order_by(OrgMember.joined_at)
         )
         return list(result.scalars().all())
+
+    async def count_owners(self, db: AsyncSession, org_id: UUID) -> int:
+        result = await db.execute(
+            select(func.count())
+            .select_from(OrgMember)
+            .where(OrgMember.org_id == org_id, OrgMember.role == MemberRole.OWNER)
+        )
+        return result.scalar_one()
 
     async def add_member(
         self, db: AsyncSession, org_id: UUID, user_id: UUID, role: MemberRole

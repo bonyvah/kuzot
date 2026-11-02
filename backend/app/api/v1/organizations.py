@@ -84,6 +84,12 @@ async def delete_organization(
     org = await organization_crud.get_by_id(db, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    # every user keeps exactly one personal org (created at registration)
+    if org.org_type == OrgType.PERSONAL:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Personal organizations cannot be deleted",
+        )
     await organization_crud.delete(db, org)
     return MessageResponse(message="Organization deleted successfully")
 
@@ -118,15 +124,35 @@ async def add_org_member(
             detail="Personal organizations cannot have additional members",
         )
 
-    user_to_add = await user_crud.get_by_id(db, body.user_id)
-    if not user_to_add:
-        raise HTTPException(status_code=404, detail="User not found")
+    # only owners may hand out ownership
+    if body.role == MemberRole.OWNER:
+        await require_org_role(current_user, org_id, MemberRole.OWNER, db)
 
-    existing = await org_member_crud.get_by_user_and_org(db, user_id=body.user_id, org_id=org_id)
+    if body.email is not None:
+        user_to_add = await user_crud.get_by_email(db, body.email)
+        if not user_to_add:
+            raise HTTPException(
+                status_code=404,
+                detail="No Kuzot account uses this email. Ask them to sign up first.",
+            )
+    else:
+        user_to_add = await user_crud.get_by_id(db, body.user_id)
+        if not user_to_add:
+            raise HTTPException(status_code=404, detail="User not found")
+
+    existing = await org_member_crud.get_by_user_and_org(db, user_id=user_to_add.id, org_id=org_id)
     if existing:
         raise HTTPException(status_code=400, detail="User is already a member of this organization")
 
-    return await org_member_crud.add_member(db, org_id=org_id, user_id=body.user_id, role=body.role)
+    return await org_member_crud.add_member(db, org_id=org_id, user_id=user_to_add.id, role=body.role)
+
+
+async def _ensure_not_last_owner(db: DBSession, member, org_id: UUID) -> None:
+    if member.role == MemberRole.OWNER and await org_member_crud.count_owners(db, org_id) == 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An organization needs at least one owner. Make someone else an owner first.",
+        )
 
 
 @router.put("/{org_id}/members/{user_id}", response_model=OrgMemberPublic)
@@ -141,6 +167,8 @@ async def update_org_member_role(
     member = await org_member_crud.get_by_user_and_org(db, user_id=user_id, org_id=org_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found in organization")
+    if body.role != MemberRole.OWNER:
+        await _ensure_not_last_owner(db, member, org_id)
 
     return await org_member_crud.update_role(db, member, new_role=body.role)
 
@@ -152,10 +180,13 @@ async def remove_org_member(
     current_user: CurrentUser,
     db: DBSession,
 ):
-    await require_org_role(current_user, org_id, MemberRole.OWNER, db)
+    # anyone may leave; removing someone else takes the owner role
+    if user_id != current_user.id:
+        await require_org_role(current_user, org_id, MemberRole.OWNER, db)
     member = await org_member_crud.get_by_user_and_org(db, user_id=user_id, org_id=org_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found in organization")
+    await _ensure_not_last_owner(db, member, org_id)
 
     await org_member_crud.remove_member(db, member)
     return MessageResponse(message="Member removed successfully")
