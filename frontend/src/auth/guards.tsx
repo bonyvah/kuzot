@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 
 import { useAuth } from "./AuthProvider";
 import { Splash } from "../components/Splash";
+import { LandingPage } from "../pages/LandingPage";
 
 interface FromState {
   from?: string;
@@ -14,6 +15,8 @@ export function RequireAuth() {
 
   if (state.status === "loading") return <Splash />;
   if (state.status === "anonymous") {
+    // The home page doubles as the public landing page.
+    if (location.pathname === "/") return <LandingPage />;
     const from = location.pathname + location.search + location.hash;
     return <Navigate to="/signin" replace state={{ from } satisfies FromState} />;
   }
