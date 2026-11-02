@@ -4,7 +4,6 @@ import { Link } from "react-router";
 import { errorText } from "../api/client";
 import { useCreateWorkspace, useWorkspaces } from "../api/queries";
 import { Button } from "../components/Button";
-import { SelectField } from "../components/SelectField";
 import { WorkspaceDialog } from "../components/WorkspaceDialog";
 import { formatDate } from "../format";
 import { useOrg } from "../org/OrgProvider";
@@ -12,7 +11,7 @@ import "./Page.css";
 
 /** Home: the current organization's workspaces. */
 export function DashboardPage() {
-  const { orgs, current, select, isLoading, error } = useOrg();
+  const { current, isLoading, error } = useOrg();
   const workspaces = useWorkspaces(current?.id);
   const [creating, setCreating] = useState(false);
 
@@ -25,17 +24,11 @@ export function DashboardPage() {
       <div className="page__head">
         <div className="page__heading">
           <h1 className="page__title">Workspaces</h1>
-          <p className="page__subtitle">Group the competitors you track, one workspace per market or product.</p>
+          <p className="page__subtitle">
+            In {current.name}. Group the competitors you track, one workspace per market or product.
+          </p>
         </div>
         <div className="page__actions">
-          {orgs.length > 1 && (
-            <SelectField
-              label="Organization"
-              value={current.id}
-              onChange={(e) => select(e.target.value)}
-              options={orgs.map((o) => ({ value: o.id, label: o.name }))}
-            />
-          )}
           <Button onClick={() => setCreating(true)}>New workspace</Button>
         </div>
       </div>

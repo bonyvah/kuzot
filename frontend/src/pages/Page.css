@@ -272,3 +272,55 @@ a.card:hover {
   border-radius: 3px 3px 0 0;
   background: var(--primary);
 }
+
+.member {
+  display: flex;
+  flex-direction: column;
+}
+
+.member__name {
+  font-weight: 500;
+}
+
+.member__email {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.role-select {
+  height: 32px;
+  padding: 0 8px;
+  background: var(--surface-highest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.role-select:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.org-roles {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.org-roles b {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.danger-zone {
+  padding: 20px 24px;
+  border: 1px solid color-mix(in srgb, var(--error), transparent 60%);
+  border-radius: 16px;
+}
+
+.danger-zone .page__note {
+  margin: 4px 0 12px;
+}
+
+.danger-zone .btn {
+  margin-left: -12px;
+}

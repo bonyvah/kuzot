@@ -5,6 +5,7 @@ import { useWorkspaces } from "../api/queries";
 import { useAuth, useUser } from "../auth/AuthProvider";
 import { OrgProvider, useOrg } from "../org/OrgProvider";
 import { Logo } from "./Logo";
+import { OrgSwitcher } from "./OrgSwitcher";
 import "./AppShell.css";
 
 /** Gmail-style frame: app bar, collapsible nav rail, rounded content panel. */
@@ -36,6 +37,7 @@ function Shell() {
         <Link to="/" className="shell__brand" aria-label="Kuzot home">
           <Logo />
         </Link>
+        <OrgSwitcher />
         <div className="shell__spacer" />
         <AccountMenu />
       </header>

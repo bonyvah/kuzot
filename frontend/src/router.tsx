@@ -6,6 +6,7 @@ import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { CompetitorPage } from "./pages/CompetitorPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { OrganizationPage } from "./pages/OrganizationPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { WorkspaceCompetitors, WorkspaceLayout } from "./pages/WorkspacePage";
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
             ],
           },
           { path: "reports/:reportId", element: <ReportPage /> },
+          { path: "organization", element: <OrganizationPage /> },
           { path: "competitors/:competitorId", element: <CompetitorPage /> },
         ],
       },
