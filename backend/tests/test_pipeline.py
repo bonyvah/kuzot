@@ -527,7 +527,7 @@ def test_robots_disallow_fails_job_without_fetching(
     assert fetched == []
     job = get_job(sync_session, job_id)
     assert job.status == ScrapeJobStatus.FAILED
-    assert "robots.txt" in job.error_message
+    assert "robots.txt" in (job.error_message or "")
     assert mongo.page_snapshots.docs == []
     assert sent_tasks == []
 
@@ -547,7 +547,7 @@ def test_unreachable_robots_fails_job_without_fetching(
 
     assert result["status"] == "failed"
     assert fetched == []
-    assert "robots.txt (HTTP 503)" in get_job(sync_session, job_id).error_message
+    assert "robots.txt (HTTP 503)" in (get_job(sync_session, job_id).error_message or "")
 
 
 class FakeRedis:
@@ -623,4 +623,4 @@ def test_instagram_without_provider_fails_clearly(sync_session, mongo, sent_task
     assert result["status"] == "failed"
     job = get_job(sync_session, job_id)
     assert job.status == ScrapeJobStatus.FAILED
-    assert "add APIFY_TOKEN" in job.error_message
+    assert "add APIFY_TOKEN" in (job.error_message or "")

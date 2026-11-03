@@ -107,7 +107,10 @@ def from_html(html: bytes | str, base_url: str) -> list[tuple[str, str]]:
     soup = BeautifulSoup(html, "lxml")
     out = []
     for a in soup.find_all("a", href=True):
-        url = normalize(urljoin(base_url, a["href"]))
+        href = a.get("href")
+        if not isinstance(href, str):  # bs4 returns a list for multi-valued attributes
+            continue
+        url = normalize(urljoin(base_url, href))
         if url:
             out.append((url, " ".join(a.get_text(" ").split())[:80]))
     return out

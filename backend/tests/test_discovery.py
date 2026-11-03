@@ -105,6 +105,7 @@ def test_model_can_only_pick_listed_candidates(monkeypatch):
 
     monkeypatch.setattr(select, "get_openai", lambda: type("O", (), {"chat": type("Ch", (), {"completions": Completions})()})())
     picked = select.pick(cands, name="Acme", website=None, description=None, notes=None, looking_for=None)
+    assert picked is not None
 
     assert [(c.url, c.url_type, c.label, r) for c, r in picked] == [
         ("https://acme.io/plans", URLType.PRICING, None, "plans page"),

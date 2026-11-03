@@ -169,9 +169,10 @@ def test_headline_prompt_and_cleanup(monkeypatch):
          "url": "https://b.example/pricing", "url_type": "pricing", "label": None},
         ["Pro — $39 per month"], ["Pro — $49 per month"], T0,
     )
-    messages = headline.build_messages(insight, "Brightdesk")
-    assert "Brightdesk" in messages[1]["content"]
-    assert "- Pro — $49 per month\n+ Pro — $39 per month" in messages[1]["content"]
+    content = headline.build_messages(insight, "Brightdesk")[1].get("content")
+    assert isinstance(content, str)
+    assert "Brightdesk" in content
+    assert "- Pro — $49 per month\n+ Pro — $39 per month" in content
 
     class Reply:
         def __init__(self, text):

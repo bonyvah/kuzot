@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import cast
 from uuid import UUID
 
 from redis.exceptions import RedisError
@@ -33,7 +34,8 @@ def robots_allows(url: str) -> bool:
     key = f"robots:{robots_url(url)}"
     redis = get_redis()
     try:
-        cached = redis.get(key)
+        # the sync client returns bytes; its type hints also allow an awaitable
+        cached = cast(bytes | None, redis.get(key))
     except RedisError:
         cached = None  # the cache is an optimization: fetch it instead
     if cached is not None:
