@@ -17,7 +17,7 @@ class MonitoredURLCRUD:
         result = await db.execute(
             select(MonitoredURL)
             .where(MonitoredURL.competitor_id == competitor_id)
-            .order_by(MonitoredURL.created_at.desc())
+            .order_by(MonitoredURL.created_at.desc(), MonitoredURL.id)
         )
         return list(result.scalars().all())
 

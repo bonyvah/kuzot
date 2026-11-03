@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { errorText } from "../api/client";
+import { ApiError, errorText } from "../api/client";
 import type { MonitoredUrl } from "../api/monitoring";
 import { useAddUrl, useCompetitor, useDeleteUrl, useTriggerScrape, useUpdateUrl } from "../api/queries";
 import { Button } from "../components/Button";
@@ -20,6 +20,7 @@ type Modal =
   | { kind: "type"; url: MonitoredUrl }
   | { kind: "delete-url"; url: MonitoredUrl }
   | { kind: "scrape"; url: MonitoredUrl }
+  | { kind: "scrape-all"; urls: MonitoredUrl[] }
   | { kind: "toggle"; url: MonitoredUrl }
   | null;
 
@@ -29,6 +30,8 @@ export function CompetitorPagesPage() {
   const competitor = useCompetitor(competitorId);
   const [modal, setModal] = useState<Modal>(null);
   const [queued, setQueued] = useState<MonitoredUrl | null>(null);
+  // Pages scraped from this visit; their button stays disabled until you leave the page.
+  const [scraped, setScraped] = useState<ReadonlySet<string>>(() => new Set());
 
   if (competitor.isLoading) return <p className="page page__note">Loading…</p>;
   if (competitor.error || !competitor.data) {
@@ -38,6 +41,8 @@ export function CompetitorPagesPage() {
   }
   const c = competitor.data;
   const close = () => setModal(null);
+  // Active pages not already scraped from this visit.
+  const toScrape = c.urls.filter((u) => u.is_active && !scraped.has(u.id));
 
   return (
     <div className="page">
@@ -54,6 +59,13 @@ export function CompetitorPagesPage() {
           <p className="page__subtitle">What Kuzot checks on {c.name}, and how the latest checks went.</p>
         </div>
         <div className="page__actions">
+          <Button
+            variant="text"
+            disabled={!toScrape.length}
+            onClick={() => setModal({ kind: "scrape-all", urls: toScrape })}
+          >
+            Scrape all
+          </Button>
           <Button onClick={() => setModal({ kind: "add-url" })}>Add page</Button>
         </div>
       </div>
@@ -68,6 +80,7 @@ export function CompetitorPagesPage() {
         ) : (
           <UrlTable
             urls={c.urls}
+            scraped={scraped}
             onScrape={(url) => setModal({ kind: "scrape", url })}
             onToggle={(url) => setModal({ kind: "toggle", url })}
             onEditInterval={(url) => setModal({ kind: "interval", url })}
@@ -103,7 +116,19 @@ export function CompetitorPagesPage() {
           onClose={close}
           onQueued={(url) => {
             setQueued(url);
+            setScraped((s) => new Set(s).add(url.id));
             close();
+          }}
+        />
+      )}
+      {modal?.kind === "scrape-all" && (
+        <ConfirmScrapeAll
+          competitorId={c.id}
+          urls={modal.urls}
+          onClose={close}
+          onQueued={(ids) => {
+            setQueued(null);
+            setScraped((s) => new Set([...s, ...ids]));
           }}
         />
       )}
@@ -117,6 +142,7 @@ export function CompetitorPagesPage() {
 
 interface UrlTableProps {
   urls: MonitoredUrl[];
+  scraped: ReadonlySet<string>;
   onScrape: (url: MonitoredUrl) => void;
   onToggle: (url: MonitoredUrl) => void;
   onEditInterval: (url: MonitoredUrl) => void;
@@ -124,7 +150,7 @@ interface UrlTableProps {
   onDelete: (url: MonitoredUrl) => void;
 }
 
-function UrlTable({ urls, onScrape, onToggle, onEditInterval, onEditType, onDelete }: UrlTableProps) {
+function UrlTable({ urls, scraped, onScrape, onToggle, onEditInterval, onEditType, onDelete }: UrlTableProps) {
   return (
     <div className="table-wrap">
       <table className="table">
@@ -168,8 +194,8 @@ function UrlTable({ urls, onScrape, onToggle, onEditInterval, onEditType, onDele
               </td>
               <td>
                 <div className="table__actions">
-                  <Button variant="text" onClick={() => onScrape(url)}>
-                    Scrape now
+                  <Button variant="text" onClick={() => onScrape(url)} disabled={scraped.has(url.id)}>
+                    {scraped.has(url.id) ? "Queued" : "Scrape now"}
                   </Button>
                   <Button variant="text" className="btn--danger" onClick={() => onDelete(url)}>
                     Remove
@@ -208,6 +234,44 @@ function ConfirmScrape({
       onClose={onClose}
     >
       Kuzot will check {url.url} right away instead of waiting for its next scheduled check.
+    </ConfirmDialog>
+  );
+}
+
+function ConfirmScrapeAll({
+  competitorId,
+  urls,
+  onClose,
+  onQueued,
+}: {
+  competitorId: string;
+  urls: MonitoredUrl[];
+  onClose: () => void;
+  onQueued: (ids: string[]) => void;
+}) {
+  const trigger = useTriggerScrape(competitorId);
+  return (
+    <ConfirmDialog
+      danger={false}
+      title={`Scrape ${urls.length} ${urls.length === 1 ? "page" : "pages"} now?`}
+      confirmLabel="Scrape all"
+      onConfirm={async () => {
+        const results = await Promise.allSettled(urls.map((u) => trigger.mutateAsync(u.id)));
+        // 409: already being scraped, which is what we wanted anyway.
+        const done = urls.filter((_, i) => {
+          const r = results[i];
+          return r.status === "fulfilled" || (r.reason instanceof ApiError && r.reason.status === 409);
+        });
+        onQueued(done.map((u) => u.id));
+        const failed = urls.length - done.length;
+        if (!failed) return onClose();
+        // Keep the dialog open to show what went wrong; queued pages are already marked.
+        const first = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+        throw new Error(`${failed} of ${urls.length} couldn't be queued: ${errorText(first.reason)}`);
+      }}
+      onClose={onClose}
+    >
+      Kuzot will check every active page of this competitor right away. Paused pages are skipped.
     </ConfirmDialog>
   );
 }

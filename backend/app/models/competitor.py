@@ -41,9 +41,11 @@ class Competitor(Base):
         back_populates="competitors",
         lazy="joined",
     )
-    # selectin: URL list needed whenever a competitor is displayed
+    # selectin: URL list needed whenever a competitor is displayed.
+    # Ordered so edits (which rewrite rows) don't reshuffle the list: newest first.
     urls: Mapped[list["MonitoredURL"]] = relationship(
         back_populates="competitor",
         lazy="selectin",
+        order_by="(MonitoredURL.created_at.desc(), MonitoredURL.id)",
         cascade="all, delete-orphan",
     )
