@@ -21,6 +21,7 @@ from app.models import (
 from app.scraping.fetcher import FetchError, FetchResult, TransientFetchError
 from app.scraping.robots import RobotsUnreachable
 from app.workers import pipeline
+from app.sources import web
 from app.workers.pipeline import BrowserRequired, run_scrape, utcnow
 from app.workers.pipeline import robots_allows as real_robots_allows
 from app.workers.tasks import scraping
@@ -172,7 +173,7 @@ def get_url(sync_session, url_id) -> MonitoredURL:
 def test_first_scrape_stores_snapshot_and_event(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(page()))
     url_id = make_url()
     job_id = make_job(url_id)
 
@@ -205,7 +206,7 @@ def test_first_scrape_stores_snapshot_and_event(
 def test_unchanged_content_stores_nothing_and_triggers_nothing(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(page()))
     url_id = make_url()
     run_scrape(make_job(url_id), None, use_browser=False)
     sent_tasks.clear()
@@ -227,11 +228,11 @@ def test_whitespace_only_difference_is_not_a_change(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
     url_id = make_url()
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(page()))
     run_scrape(make_job(url_id), None, use_browser=False)
 
     reflowed = page(LONG_TEXT.replace(". ", ".\n    "))
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(reflowed))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(reflowed))
     result = run_scrape(make_job(url_id), None, use_browser=False)
 
     assert result["changed"] is False
@@ -242,12 +243,12 @@ def test_content_change_creates_second_event_with_previous_hash(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
     url_id = make_url()
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(page()))
     run_scrape(make_job(url_id), None, use_browser=False)
     first_hash = mongo.page_snapshots.docs[0]["content_hash"]
 
     monkeypatch.setattr(
-        pipeline, "fetch_html", fetch_returning(page(LONG_TEXT.replace("$20", "$25")))
+        web, "fetch_html", fetch_returning(page(LONG_TEXT.replace("$20", "$25")))
     )
     result = run_scrape(make_job(url_id), None, use_browser=False)
 
@@ -261,7 +262,7 @@ def test_thin_page_on_httpx_requests_browser(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
     shell = b"<html><body><div id='root'></div></body></html>"
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(shell))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(shell))
     job_id = make_job(make_url())
 
     with pytest.raises(BrowserRequired):
@@ -275,7 +276,7 @@ def test_403_on_httpx_requests_browser(
     monkeypatch, sync_session, mongo, make_url, make_job
 ):
     monkeypatch.setattr(
-        pipeline, "fetch_html", fetch_raising(FetchError("HTTP 403", status_code=403))
+        web, "fetch_html", fetch_raising(FetchError("HTTP 403", status_code=403))
     )
     with pytest.raises(BrowserRequired):
         run_scrape(make_job(make_url()), None, use_browser=False)
@@ -285,7 +286,7 @@ def test_404_fails_job_without_browser(
     monkeypatch, sync_session, mongo, make_url, make_job
 ):
     monkeypatch.setattr(
-        pipeline, "fetch_html", fetch_raising(FetchError("HTTP 404", status_code=404))
+        web, "fetch_html", fetch_raising(FetchError("HTTP 404", status_code=404))
     )
     job_id = make_job(make_url())
 
@@ -302,7 +303,7 @@ def test_transient_error_fails_job(
     monkeypatch, sync_session, mongo, make_url, make_job
 ):
     monkeypatch.setattr(
-        pipeline, "fetch_html", fetch_raising(TransientFetchError("HTTP 503"))
+        web, "fetch_html", fetch_raising(TransientFetchError("HTTP 503"))
     )
     job_id = make_job(make_url())
 
@@ -313,7 +314,7 @@ def test_transient_error_fails_job(
 def test_unexpected_error_fails_job_and_reraises(
     monkeypatch, sync_session, mongo, make_url, make_job
 ):
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_raising(RuntimeError("boom")))
+    monkeypatch.setattr(web, "fetch_html", fetch_raising(RuntimeError("boom")))
     job_id = make_job(make_url())
 
     with pytest.raises(RuntimeError):
@@ -329,9 +330,9 @@ def test_browser_mode_uses_rendered_fetcher_and_marks_snapshot(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
     monkeypatch.setattr(
-        pipeline, "fetch_html", fetch_raising(AssertionError("httpx must not run"))
+        web, "fetch_html", fetch_raising(AssertionError("httpx must not run"))
     )
-    monkeypatch.setattr(pipeline, "fetch_rendered", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_rendered", fetch_returning(page()))
     job_id = make_job(make_url())
 
     result = run_scrape(job_id, None, use_browser=True)
@@ -344,7 +345,7 @@ def test_thin_page_after_browser_fails_job(
     monkeypatch, sync_session, mongo, make_url, make_job
 ):
     shell = b"<html><body><div id='root'></div></body></html>"
-    monkeypatch.setattr(pipeline, "fetch_rendered", fetch_returning(shell))
+    monkeypatch.setattr(web, "fetch_rendered", fetch_returning(shell))
     job_id = make_job(make_url())
 
     result = run_scrape(job_id, None, use_browser=True)
@@ -360,7 +361,7 @@ def test_403_in_browser_mode_fails_instead_of_looping(
     monkeypatch, sync_session, mongo, make_url, make_job
 ):
     monkeypatch.setattr(
-        pipeline,
+        web,
         "fetch_rendered",
         fetch_raising(FetchError("HTTP 403", status_code=403)),
     )
@@ -381,7 +382,7 @@ def test_scrape_url_escalates_to_browser_queue(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
     shell = b"<html><body><div id='root'></div></body></html>"
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(shell))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(shell))
     job_id = make_job(make_url())
 
     result = scrape_url.apply(args=[job_id]).get()
@@ -393,7 +394,7 @@ def test_scrape_url_escalates_to_browser_queue(
 def test_scrape_url_runs_pipeline_with_httpx(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
-    monkeypatch.setattr(pipeline, "fetch_html", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_html", fetch_returning(page()))
     job_id = make_job(make_url())
 
     result = scrape_url.apply(args=[job_id]).get()
@@ -405,7 +406,7 @@ def test_scrape_url_runs_pipeline_with_httpx(
 def test_scrape_url_browser_task_uses_browser(
     monkeypatch, sync_session, mongo, sent_tasks, make_url, make_job
 ):
-    monkeypatch.setattr(pipeline, "fetch_rendered", fetch_returning(page()))
+    monkeypatch.setattr(web, "fetch_rendered", fetch_returning(page()))
     job_id = make_job(make_url())
 
     result = scrape_url_browser.apply(args=[job_id]).get()
@@ -518,7 +519,7 @@ def test_robots_disallow_fails_job_without_fetching(
 ):
     fetched = []
     monkeypatch.setattr(pipeline, "robots_allows", lambda url: False)
-    monkeypatch.setattr(pipeline, "fetch_html", lambda url: fetched.append(url))
+    monkeypatch.setattr(web, "fetch_html", lambda url: fetched.append(url))
     job_id = make_job(make_url())
 
     assert run_scrape(job_id, None, use_browser=False) == {"status": "blocked"}
@@ -539,7 +540,7 @@ def test_unreachable_robots_fails_job_without_fetching(
 
     fetched = []
     monkeypatch.setattr(pipeline, "robots_allows", unreachable)
-    monkeypatch.setattr(pipeline, "fetch_html", lambda url: fetched.append(url))
+    monkeypatch.setattr(web, "fetch_html", lambda url: fetched.append(url))
     job_id = make_job(make_url())
 
     result = run_scrape(job_id, None, use_browser=False)
@@ -591,16 +592,16 @@ def test_robots_allows_works_when_redis_is_down(monkeypatch):
 # ── social channels ───────────────────────────────────────────────
 
 def test_telegram_channel_is_scraped_as_posts(sync_session, mongo, sent_tasks, make_url, make_job, monkeypatch):
-    from app.scraping import social
-    from tests.test_social import TELEGRAM
+    from app.sources import telegram
+    from tests.test_sources import TELEGRAM
 
-    monkeypatch.setattr(social, "fetch_html", fetch_returning(TELEGRAM))
+    monkeypatch.setattr(telegram, "fetch_html", fetch_returning(TELEGRAM))
     url_id = make_url(url="https://t.me/s/acme_news", url_type=URLType.TELEGRAM)
     job_id = make_job(url_id)
 
     result = pipeline.run_scrape(job_id, None, use_browser=False)
 
-    assert result == {"status": "success", "changed": True}
+    assert result == {"status": "success", "changed": True, "browser": False}
     snapshot = mongo.page_snapshots.docs[0]
     assert snapshot["rendered_with"] == "telegram"
     assert snapshot["paragraphs"][0].startswith("2026-11-02 · New: Pro plan now $39")
@@ -613,7 +614,7 @@ def test_instagram_without_provider_fails_clearly(sync_session, mongo, sent_task
     monkeypatch.setattr(settings, "APIFY_TOKEN", None)
     # provider pages never touch robots.txt or our fetcher
     monkeypatch.setattr(pipeline, "robots_allows", lambda url: pytest.fail("robots.txt consulted"))
-    monkeypatch.setattr(pipeline, "fetch_html", lambda url: pytest.fail("fetched directly"))
+    monkeypatch.setattr(web, "fetch_html", lambda url: pytest.fail("fetched directly"))
     url_id = make_url(url="https://instagram.com/acme", url_type=URLType.INSTAGRAM)
     job_id = make_job(url_id)
 

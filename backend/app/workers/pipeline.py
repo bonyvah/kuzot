@@ -4,22 +4,15 @@ from uuid import UUID
 from redis.exceptions import RedisError
 
 from app.models import MonitoredURL, ScrapeJob, ScrapeJobStatus
-from app.scraping.browser import fetch_rendered
-from app.scraping.extractor import (
-    extract_text,
-    is_thin,
-    normalize_text,
-    split_paragraphs,
-)
-from app.scraping.fetcher import FetchError, TransientFetchError, fetch_html
+from app.scraping.fetcher import FetchError, TransientFetchError
 from app.scraping.hashing import content_hash, has_changed
-from app.scraping.social import PROVIDER_TYPES, SOCIAL_TYPES, read_posts
 from app.scraping.robots import (
     RobotsUnreachable,
     fetch_robots_txt,
     is_allowed,
     robots_url,
 )
+from app.sources import BrowserRequired, SourceResult, source_for
 from app.workers.celery_app import celery_app
 from app.workers.db import SyncSession, get_mongo_db, get_redis
 
@@ -27,8 +20,7 @@ ROBOTS_TTL_SECONDS = 24 * 60 * 60  # how long a site's robots.txt is trusted
 ROBOTS_BLOCKED = "Blocked by the site's robots.txt, so it was not scraped"
 
 
-class BrowserRequired(Exception):
-    """httpx wasn't enough for this page: retry it with the headless browser."""
+__all__ = ["BrowserRequired", "robots_allows", "run_scrape", "utcnow"]
 
 
 def utcnow() -> datetime:
@@ -88,71 +80,35 @@ def run_scrape(job_id: str, task_id: str | None, *, use_browser: bool) -> dict:
         db.commit()
 
     # 2. network + CPU work, no DB connection held
-    if url_type in PROVIDER_TYPES:
-        # read through the social data provider, not fetched by us
-        return _scrape_posts(job_uuid, url, url_type, url_id, previous_hash)
-    try:
-        allowed = robots_allows(url)
-    except RobotsUnreachable as exc:
-        message = f"Couldn't read robots.txt ({exc}), so it was not scraped"
-        _fail(job_uuid, message)
-        return {"status": "failed", "error": message}
-    if not allowed:
-        _fail(job_uuid, ROBOTS_BLOCKED)
-        return {"status": "blocked"}
+    source = source_for(url_type, use_browser=use_browser)
+    if source.respects_robots:
+        try:
+            allowed = robots_allows(url)
+        except RobotsUnreachable as exc:
+            message = f"Couldn't read robots.txt ({exc}), so it was not scraped"
+            _fail(job_uuid, message)
+            return {"status": "failed", "error": message}
+        if not allowed:
+            _fail(job_uuid, ROBOTS_BLOCKED)
+            return {"status": "blocked"}
 
-    if url_type in SOCIAL_TYPES:
-        return _scrape_posts(job_uuid, url, url_type, url_id, previous_hash)
-
-    fetch = fetch_rendered if use_browser else fetch_html
     try:
-        result = fetch(url)
-        raw_text = extract_text(result.content)
-        if raw_text is None or is_thin(raw_text):
-            if not use_browser:
-                raise BrowserRequired()
-            raise FetchError("Too little text extracted even after browser rendering")
-        text = normalize_text(raw_text)
-        paragraphs = split_paragraphs(raw_text)
-        new_hash = content_hash(text)
+        result = source.read(url)
     except BrowserRequired:
         raise
     except (FetchError, TransientFetchError) as exc:
-        # 403 is often an anti-bot block that a real browser gets past
-        if not use_browser and getattr(exc, "status_code", None) == 403:
-            raise BrowserRequired() from exc
         _fail(job_uuid, str(exc))
         return {"status": "failed", "error": str(exc)}
     except Exception as exc:
         _fail(job_uuid, f"Unexpected: {type(exc).__name__}: {exc}")
         raise
 
-    return _record(
-        job_uuid, url_id, previous_hash, result.url, text, paragraphs, new_hash,
-        rendered_with="browser" if use_browser else "httpx",
-    ) | {"browser": use_browser}
+    return _record(job_uuid, url_id, previous_hash, result) | {"browser": use_browser}
 
 
-def _scrape_posts(job_uuid: UUID, url: str, url_type, url_id, previous_hash) -> dict:
-    """Social channels: recent posts, one line each, instead of page text."""
-    try:
-        posts = read_posts(url_type, url)
-    except (FetchError, TransientFetchError) as exc:
-        _fail(job_uuid, str(exc))
-        return {"status": "failed", "error": str(exc)}
-    except Exception as exc:
-        _fail(job_uuid, f"Unexpected: {type(exc).__name__}: {exc}")
-        raise
-    paragraphs = [p.line() for p in posts]
-    text = "\n".join(paragraphs)
-    return _record(
-        job_uuid, url_id, previous_hash, url, text, paragraphs, content_hash(text),
-        rendered_with="apify" if url_type in PROVIDER_TYPES else "telegram",
-    )
-
-
-def _record(job_uuid, url_id, previous_hash, final_url, text, paragraphs, new_hash, *, rendered_with) -> dict:
+def _record(job_uuid: UUID, url_id: UUID, previous_hash: str | None, result: SourceResult) -> dict:
     # 3. compare, store in Mongo only when content changed
+    new_hash = content_hash(result.text)
     changed = has_changed(previous_hash, new_hash)
     snapshot_id = None
     event_id = None
@@ -162,12 +118,12 @@ def _record(job_uuid, url_id, previous_hash, final_url, text, paragraphs, new_ha
         snapshot_id = mongo_db.page_snapshots.insert_one(
             {
                 "monitored_url_id": str(url_id),
-                "url": final_url,
+                "url": result.url,
                 "content_hash": new_hash,
-                "text": text,
-                "paragraphs": paragraphs,  # line structure, for chunking
+                "text": result.text,
+                "paragraphs": result.paragraphs,  # line structure, for chunking
                 "scraped_at": now,
-                "rendered_with": rendered_with,
+                "rendered_with": result.via,
             }
         ).inserted_id
         event_id = mongo_db.change_events.insert_one(
