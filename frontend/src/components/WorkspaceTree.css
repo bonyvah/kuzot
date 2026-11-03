@@ -11,8 +11,9 @@
   align-items: center;
 }
 
-.tree__link {
+.nav-item.tree__link {
   flex: 1;
+  gap: 12px;
   min-width: 0;
   padding-right: 40px; /* room for the chevron */
 }
@@ -60,9 +61,11 @@
   margin: 2px 0 6px;
 }
 
-.tree__child {
+/* .nav-item is a compound selector so it beats .nav-item's padding, whose CSS loads later. */
+.nav-item.tree__child {
   height: 30px;
-  padding-left: 44px;
+  /* avatar lines up with the workspace name: nav-item padding 26 + avatar 20 + gap 12 */
+  padding-left: 58px;
   font-size: 13px;
   gap: 12px;
 }
@@ -73,7 +76,7 @@
 }
 
 .tree__note {
-  padding: 4px 12px 4px 50px;
+  padding: 4px 12px 4px 58px;
   font-size: 12px;
   color: var(--text-secondary);
 }
