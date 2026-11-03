@@ -26,6 +26,8 @@ export interface OrgMember {
   user_id: string;
   email: string;
   full_name: string | null;
+  avatar_emoji: string | null;
+  avatar_url: string | null;
   role: MemberRole;
   joined_at: string;
 }
@@ -69,7 +71,7 @@ export interface MonitoredUrl {
   updated_at: string;
 }
 
-export interface Competitor {
+export interface Competitor extends Avatar {
   id: string;
   workspace_id: string;
   name: string;
@@ -126,10 +128,17 @@ export interface UrlInput {
 
 export type UrlChanges = Partial<Pick<UrlInput, "url_type" | "label" | "scrape_interval_minutes">> & { is_active?: boolean };
 
-export type AvatarOwner = "organization" | "workspace";
+/** Whose avatar; "user" is always the signed-in user (id is ignored). */
+export type AvatarOwner = "organization" | "workspace" | "competitor" | "user";
 
-const avatarPath = (kind: AvatarOwner, id: string) =>
-  kind === "organization" ? `/organizations/${id}/avatar` : `/workspaces/${id}/avatar`;
+const AVATAR_PATHS: Record<AvatarOwner, (id: string) => string> = {
+  organization: (id) => `/organizations/${id}/avatar`,
+  workspace: (id) => `/workspaces/${id}/avatar`,
+  competitor: (id) => `/competitors/${id}/avatar`,
+  user: () => "/auth/me/avatar",
+};
+
+const avatarPath = (kind: AvatarOwner, id: string) => AVATAR_PATHS[kind](id);
 
 export const monitoringApi = {
   // The organizations router is mounted with a trailing slash.
@@ -141,14 +150,14 @@ export const monitoringApi = {
   deleteOrganization: (id: string) => api<{ message: string }>(`/organizations/${id}`, { method: "DELETE" }),
 
   setAvatarEmoji: (kind: AvatarOwner, id: string, emoji: string) =>
-    api<Organization | Workspace>(`${avatarPath(kind, id)}`, { method: "PUT", body: { emoji } }),
+    api<Avatar>(avatarPath(kind, id), { method: "PUT", body: { emoji } }),
   uploadAvatar: (kind: AvatarOwner, id: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return api<Organization | Workspace>(`${avatarPath(kind, id)}/image`, { method: "POST", body: form });
+    return api<Avatar>(`${avatarPath(kind, id)}/image`, { method: "POST", body: form });
   },
   clearAvatar: (kind: AvatarOwner, id: string) =>
-    api<Organization | Workspace>(avatarPath(kind, id), { method: "DELETE" }),
+    api<Avatar>(avatarPath(kind, id), { method: "DELETE" }),
 
   members: (orgId: string) => api<OrgMember[]>(`/organizations/${orgId}/members`),
   addMember: (orgId: string, email: string, role: MemberRole) =>
@@ -182,9 +191,9 @@ export const monitoringApi = {
   deleteUrl: (id: string) => api<{ message: string }>(`/monitored-urls/${id}`, { method: "DELETE" }),
 
   triggerScrape: (urlId: string) => api<ScrapeJob>(`/monitored-urls/${urlId}/trigger`, { method: "POST" }),
-  competitorJobs: (competitorId: string, urlId: string | null, page = 1) =>
+  competitorJobs: (competitorId: string, urlId: string | null, page = 1, size = 20) =>
     api<Page<ScrapeJob>>(
-      `/competitors/${competitorId}/jobs?page=${page}&size=20${urlId ? `&url_id=${urlId}` : ""}`,
+      `/competitors/${competitorId}/jobs?page=${page}&size=${size}${urlId ? `&url_id=${urlId}` : ""}`,
     ),
   jobs: (urlId: string, page = 1) => api<Page<ScrapeJob>>(`/monitored-urls/${urlId}/jobs?page=${page}&size=20`),
 };
@@ -247,11 +256,15 @@ export const intelligenceApi = {
 
 export interface Insight {
   id: string;
+  /** monitoring_started: the page was just added; only a headline, no diff. */
+  kind: "change" | "monitoring_started";
   org_id: string;
   workspace_id: string;
   workspace_name: string;
   competitor_id: string;
   competitor_name: string;
+  competitor_avatar_emoji: string | null;
+  competitor_avatar_url: string | null;
   monitored_url_id: string;
   url: string;
   url_type: UrlType;
@@ -282,7 +295,6 @@ export type InsightScope =
 export interface InsightFilters {
   workspaceId?: string;
   competitorId?: string;
-  urlType?: UrlType;
 }
 
 const SCOPE_PATH: Record<InsightScope["kind"], string> = {
@@ -297,7 +309,6 @@ export const insightsApi = {
     if (cursor) params.set("cursor", cursor);
     if (filters.workspaceId) params.set("workspace_id", filters.workspaceId);
     if (filters.competitorId) params.set("competitor_id", filters.competitorId);
-    if (filters.urlType) params.set("url_type", filters.urlType);
     return api<InsightFeedPage>(`/${SCOPE_PATH[scope.kind]}/${scope.id}/insights?${params}`);
   },
 };
@@ -333,6 +344,6 @@ export const discoveryApi = {
     signal?: AbortSignal,
   ) => api<Discovery>(`/workspaces/${workspaceId}/discover`, { method: "POST", body, signal }),
 
-  findPage: (competitorId: string, lookingFor: string, signal?: AbortSignal) =>
-    api<Discovery>(`/competitors/${competitorId}/discover`, { method: "POST", body: { looking_for: lookingFor }, signal }),
+  findPage: (competitorId: string, body: { looking_for: string | null; hints: ChannelHint[] }, signal?: AbortSignal) =>
+    api<Discovery>(`/competitors/${competitorId}/discover`, { method: "POST", body, signal }),
 };

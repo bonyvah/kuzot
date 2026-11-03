@@ -7,6 +7,8 @@ export interface User {
   is_active: boolean;
   is_verified: boolean;
   created_at: string;
+  avatar_emoji: string | null;
+  avatar_url: string | null;
 }
 
 export const authApi = {

@@ -1,5 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useAuth } from "../auth/AuthProvider";
+
 import {
   insightsApi,
   intelligenceApi,
@@ -65,11 +67,15 @@ export function useDeleteOrganization(id: string) {
 /** Emoji, upload and clear for an org's or a workspace's avatar. */
 export function useAvatarActions(kind: AvatarOwner, id: string) {
   const qc = useQueryClient();
-  // Avatars show in the org menu, nav, cards and headers: refresh them all.
+  const { refreshUser } = useAuth();
+  // Avatars show in menus, nav, cards, headers, member lists and the feed: refresh them all.
   const refresh = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: keys.organizations }),
-      qc.invalidateQueries({ queryKey: ["workspaces", id], exact: true }),
+      qc.invalidateQueries({ queryKey: ["workspaces"] }),
+      qc.invalidateQueries({ queryKey: ["competitors"] }),
+      qc.invalidateQueries({ queryKey: ["insights"] }),
+      kind === "user" ? refreshUser() : null,
     ]);
   return {
     setEmoji: useMutation({ mutationFn: (emoji: string) => monitoringApi.setAvatarEmoji(kind, id, emoji), onSuccess: refresh }),
@@ -169,7 +175,12 @@ export function useCreateCompetitor(workspaceId: string) {
   return useMutation({
     mutationFn: (body: CompetitorInput & { initial_urls: UrlInput[] }) =>
       monitoringApi.createCompetitor(workspaceId, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.competitors(workspaceId) }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: keys.competitors(workspaceId) }),
+        // New pages each get a "now monitoring" insight.
+        qc.invalidateQueries({ queryKey: ["insights"] }),
+      ]),
   });
 }
 
@@ -207,10 +218,12 @@ function useRefreshCompetitor(competitorId: string) {
 }
 
 export function useAddUrl(competitorId: string) {
+  const qc = useQueryClient();
   const refresh = useRefreshCompetitor(competitorId);
   return useMutation({
     mutationFn: (body: UrlInput) => monitoringApi.addUrl(competitorId, body),
-    onSuccess: refresh,
+    // The new page gets a "now monitoring" insight.
+    onSuccess: () => Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["insights"] })]),
   });
 }
 

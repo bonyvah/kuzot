@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, UploadFile, status
 from redis.asyncio import Redis
 
 from app.core.auth_dependencies import CurrentUser
@@ -16,10 +16,11 @@ from app.db.dependencies import DBSession
 from app.db.redis import get_redis
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.common import MessageResponse
-from app.schemas.organization import OrgCreate
+from app.schemas.organization import AvatarEmoji, OrgCreate
 from app.schemas.user import UserPublic
 from app.models.organization import OrgType
 from app.models.user import User
+from app.services import avatars
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -180,3 +181,20 @@ async def logout(
 @router.get("/me", response_model=UserPublic)
 async def get_me(current_user: CurrentUser):
     return current_user
+
+
+# ── Your avatar ────────────────────────────────────────────────────────────────
+
+@router.put("/me/avatar", response_model=UserPublic)
+async def set_my_emoji(body: AvatarEmoji, current_user: CurrentUser, db: DBSession):
+    return await avatars.set_emoji(db, await db.merge(current_user), body.emoji)
+
+
+@router.post("/me/avatar/image", response_model=UserPublic)
+async def upload_my_image(file: UploadFile, current_user: CurrentUser, db: DBSession):
+    return await avatars.set_image(db, await db.merge(current_user), file, prefix="users")
+
+
+@router.delete("/me/avatar", response_model=UserPublic)
+async def clear_my_avatar(current_user: CurrentUser, db: DBSession):
+    return await avatars.clear(db, await db.merge(current_user))

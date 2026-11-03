@@ -12,6 +12,7 @@ import {
   useSetMemberRole,
 } from "../api/queries";
 import { useUser } from "../auth/AuthProvider";
+import { Avatar } from "../components/Avatar";
 import { AvatarDialog } from "../components/AvatarDialog";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
@@ -129,7 +130,8 @@ function OrganizationSettings({ org }: { org: Organization }) {
                     return (
                       <tr key={m.id}>
                         <td>
-                          <div className="member">
+                          <div className="member member--with-avatar">
+                            <Avatar name={m.full_name || m.email} avatar={m} size={36} round />
                             <span className="member__name">
                               {m.full_name || m.email}
                               {isMe && <span className="page__note"> (you)</span>}

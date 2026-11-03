@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 
 import { errorText } from "../../api/client";
-import { URL_TYPES, type InsightFilters, type InsightScope, type UrlType, type Workspace } from "../../api/monitoring";
+import type { InsightFilters, InsightScope, Workspace } from "../../api/monitoring";
 import { useCompetitors, useInsightFeed } from "../../api/queries";
 import { Button } from "../Button";
-import { urlTypeLabel } from "../urlForm";
 import { InsightCard } from "./InsightCard";
 import "./Insights.css";
 
@@ -19,7 +18,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
   const [filters, setFilters] = useState<InsightFilters>({});
   const feed = useInsightFeed(scope, filters);
   const items = useMemo(() => feed.data?.pages.flatMap((p) => p.items) ?? [], [feed.data]);
-  const filtered = !!(filters.workspaceId || filters.competitorId || filters.urlType);
+  const filtered = !!(filters.workspaceId || filters.competitorId);
   // Competitors to filter by: the workspace's own, or the picked workspace's in an org feed.
   const competitorSource = scope.kind === "workspace" ? scope.id : (filters.workspaceId ?? "");
   const competitors = useCompetitors(scope.kind === "competitor" ? "" : competitorSource);
@@ -56,18 +55,6 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
             ))}
           </select>
         )}
-        <select
-          aria-label="Page type"
-          value={filters.urlType ?? ""}
-          onChange={(e) => setFilters({ ...filters, urlType: (e.target.value || undefined) as UrlType | undefined })}
-        >
-          <option value="">All page types</option>
-          {URL_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {urlTypeLabel(t)}
-            </option>
-          ))}
-        </select>
       </div>
 
       {feed.isLoading && <p className="page__note">Loading insights…</p>}
@@ -78,7 +65,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
           <h2 className="blank__title">{filtered ? "No insights match these filters" : "No insights yet"}</h2>
           <p>
             {filtered
-              ? "Try another workspace, competitor or page type."
+              ? "Try another workspace or competitor."
               : "Every time a monitored page changes, Kuzot puts what changed here. Add competitors and their pages to start."}
           </p>
           {!filtered && emptyAction}

@@ -146,6 +146,14 @@ async def test_discover_endpoints(client: AsyncClient, monkeypatch):
     assert res.status_code == 200
     assert calls[1]["looking_for"] == "pricing page" and calls[1]["exclude"] == {"https://acme.io/disc-home"}
 
+    res = await client.post(
+        f"/api/v1/competitors/{comp['id']}/discover", json={"hints": [{"url_type": "x", "value": ""}]}, headers=h
+    )
+    assert res.status_code == 200
+    assert calls[2]["looking_for"] is None and calls[2]["hints"][0].url_type == URLType.X
+    empty = await client.post(f"/api/v1/competitors/{comp['id']}/discover", json={"looking_for": "  "}, headers=h)
+    assert empty.status_code == 422
+
     other = await client.post("/api/v1/auth/register", json={"email": "disc-x@example.com", "password": "Password123!"})
     login = await client.post("/api/v1/auth/login", json={"email": "disc-x@example.com", "password": "Password123!"})
     denied = await client.post(

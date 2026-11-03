@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.monitored_url import URLType
+from app.schemas.avatar import WithAvatar
 
 
 # Scrape intervals: anything from 15 minutes to 30 days, daily by default.
@@ -78,9 +79,7 @@ class CompetitorUpdate(BaseModel):
     is_active: bool | None = None
 
 
-class CompetitorPublic(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class CompetitorPublic(WithAvatar):
     id: UUID
     workspace_id: UUID
     name: str

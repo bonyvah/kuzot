@@ -16,6 +16,7 @@ type Line = Insight["diff"][number][number];
 /** Hunks to show; older insights only have whole passages, shown as removed then added. */
 function hunksOf(i: Insight): Line[][] {
   if (i.diff.length) return i.diff;
+  if (!i.removed.length && !i.added.length) return [];
   return [[...i.removed.map((text) => ({ op: "removed" as const, text })), ...i.added.map((text) => ({ op: "added" as const, text }))]];
 }
 
@@ -40,11 +41,15 @@ export function InsightCard({ insight: i, hide }: InsightCardProps) {
       <header className="insight__head">
         {!hide?.competitor && (
           <Link to={`/competitors/${i.competitor_id}`} className="insight__who">
-            <Avatar name={i.competitor_name} size={28} />
+            <Avatar
+              name={i.competitor_name}
+              avatar={{ avatar_emoji: i.competitor_avatar_emoji, avatar_url: i.competitor_avatar_url }}
+              size={28}
+            />
             {i.competitor_name}
           </Link>
         )}
-        <Chip tone="info">{pageTypeName(i)}</Chip>
+        <Chip tone={i.kind === "monitoring_started" ? "success" : "info"}>{pageTypeName(i)}</Chip>
         {!hide?.workspace && (
           <Link to={`/workspaces/${i.workspace_id}`} className="insight__ws">
             {i.workspace_name}
@@ -59,20 +64,22 @@ export function InsightCard({ insight: i, hide }: InsightCardProps) {
         {i.headline}
       </h3>
 
-      <div className="insight__diff">
-        {shown.map((hunk, h) => (
-          <div key={h} className="insight__hunk">
-            {hunk.map((line, n) => (
-              <p key={n} className={`insight__line insight__line--${line.op}`}>
-                <span className="insight__sign" aria-label={SIGN_LABEL[line.op]}>
-                  {SIGN[line.op]}
-                </span>
-                <span>{line.text}</span>
-              </p>
-            ))}
-          </div>
-        ))}
-      </div>
+      {shown.length > 0 && (
+        <div className="insight__diff">
+          {shown.map((hunk, h) => (
+            <div key={h} className="insight__hunk">
+              {hunk.map((line, n) => (
+                <p key={n} className={`insight__line insight__line--${line.op}`}>
+                  <span className="insight__sign" aria-label={SIGN_LABEL[line.op]}>
+                    {SIGN[line.op]}
+                  </span>
+                  <span>{line.text}</span>
+                </p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       <footer className="insight__foot">
         <a href={i.url} target="_blank" rel="noreferrer noopener" className="insight__url">

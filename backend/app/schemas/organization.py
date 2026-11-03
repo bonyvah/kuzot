@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 
 from app.core import storage
+from app.schemas.avatar import WithAvatar
 from app.models.organization import OrgPlan, OrgType
 from app.models.org_member import MemberRole
 from app.services.avatars import validate_emoji
@@ -18,8 +19,7 @@ class OrgUpdate(BaseModel):
     name: str | None = None
 
 
-class OrgPublic(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class OrgPublic(WithAvatar):
 
     id: UUID
     name: str
@@ -28,18 +28,6 @@ class OrgPublic(BaseModel):
     plan: OrgPlan
     created_at: datetime
     updated_at: datetime
-    avatar_emoji: str | None = None
-    avatar_url: str | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _avatar_url(cls, data):
-        # the stored S3 key becomes the URL browsers load
-        key = getattr(data, "avatar_key", None)
-        if key is not None:
-            data = {name: getattr(data, name) for name in cls.model_fields if hasattr(data, name)}
-            data["avatar_url"] = storage.public_url(key)
-        return data
 
 
 class AvatarEmoji(BaseModel):
@@ -59,6 +47,8 @@ class OrgMemberPublic(BaseModel):
     user_id: UUID
     email: str
     full_name: str | None
+    avatar_emoji: str | None = None
+    avatar_url: str | None = None
     role: MemberRole
     joined_at: datetime
 
@@ -73,6 +63,8 @@ class OrgMemberPublic(BaseModel):
                 "user_id": data.user_id,
                 "email": data.user.email,
                 "full_name": data.user.full_name,
+                "avatar_emoji": data.user.avatar_emoji,
+                "avatar_url": storage.public_url(data.user.avatar_key) if data.user.avatar_key else None,
                 "role": data.role,
                 "joined_at": data.joined_at,
             }

@@ -1,12 +1,12 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, EmailStr
+
+from app.schemas.avatar import WithAvatar
 
 
-class UserPublic(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class UserPublic(WithAvatar):
     id: UUID
     email: EmailStr
     full_name: str | None

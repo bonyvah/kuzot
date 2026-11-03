@@ -79,7 +79,7 @@ async def delete_workspace(
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.ADMIN, db)
-    await avatars.delete_files(workspace)
+    await avatars.delete_workspace_files(workspace)
     await workspace_crud.delete(db, workspace)
     return MessageResponse(message="Workspace deleted successfully")
 

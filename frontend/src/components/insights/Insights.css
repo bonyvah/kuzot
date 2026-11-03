@@ -5,6 +5,11 @@
   margin-bottom: 16px;
 }
 
+/* No filters apply (e.g. a competitor's own feed): no empty strip. */
+.feed__filters:empty {
+  display: none;
+}
+
 .feed__filters select {
   height: 36px;
   padding: 0 10px;

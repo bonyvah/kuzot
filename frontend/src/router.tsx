@@ -5,6 +5,7 @@ import { AppShell } from "./components/AppShell";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { CompetitorHistoryPage } from "./pages/CompetitorHistoryPage";
 import { CompetitorPage } from "./pages/CompetitorPage";
+import { CompetitorPagesPage } from "./pages/CompetitorPagesPage";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { OrganizationPage } from "./pages/OrganizationPage";
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
           { path: "reports/:reportId", element: <ReportPage /> },
           { path: "organization", element: <OrganizationPage /> },
           { path: "competitors/:competitorId", element: <CompetitorPage /> },
+          { path: "competitors/:competitorId/pages", element: <CompetitorPagesPage /> },
           { path: "competitors/:competitorId/history", element: <CompetitorHistoryPage /> },
         ],
       },

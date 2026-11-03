@@ -11,7 +11,9 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
+from app.models.competitor import Competitor
 from app.models.organization import Organization
+from app.models.user import User
 from app.models.workspace import Workspace
 
 log = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ _SIGNATURES: list[tuple[bytes, int, str, str]] = [
     (b"WEBP", 8, "image/webp", "webp"),
 ]
 
-Avatarable = Organization | Workspace
+Avatarable = Organization | Workspace | Competitor | User
 
 
 def validate_emoji(value: str) -> str:
@@ -114,3 +116,10 @@ async def clear(db: AsyncSession, record: Avatarable) -> Avatarable:
 async def delete_files(record: Avatarable) -> None:
     """Remove a record's stored image before the record itself is deleted."""
     await _drop_image(record)
+
+
+async def delete_workspace_files(workspace: Workspace) -> None:
+    """A workspace's image and its competitors' (they're deleted with it)."""
+    for competitor in workspace.competitors:
+        await _drop_image(competitor)
+    await _drop_image(workspace)

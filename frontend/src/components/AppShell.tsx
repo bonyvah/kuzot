@@ -3,6 +3,8 @@ import { Link, NavLink, Outlet } from "react-router";
 
 import { useAuth, useUser } from "../auth/AuthProvider";
 import { OrgProvider } from "../org/OrgProvider";
+import { Avatar } from "./Avatar";
+import { AvatarDialog } from "./AvatarDialog";
 import { Logo } from "./Logo";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { WorkspaceTree } from "./WorkspaceTree";
@@ -69,6 +71,7 @@ function AccountMenu() {
   const user = useUser();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [picking, setPicking] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,12 +100,27 @@ function AccountMenu() {
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
       >
-        <Avatar name={name} size={32} />
+        <Avatar name={name} avatar={user} size={32} round />
       </button>
       {open && (
         <div className="account__panel" role="dialog" aria-label="Account">
           <div className="account__email">{user.email}</div>
-          <Avatar name={name} size={80} />
+          <button
+            type="button"
+            className="account__picture"
+            aria-label="Change your picture"
+            onClick={() => {
+              setOpen(false);
+              setPicking(true);
+            }}
+          >
+            <Avatar name={name} avatar={user} size={80} round />
+            <span className="account__picture-edit" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+              </svg>
+            </span>
+          </button>
           <div className="account__greeting">Hi, {name.split(" ")[0]}!</div>
           <button type="button" className="account__signout" onClick={signOut}>
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -115,14 +133,7 @@ function AccountMenu() {
           </button>
         </div>
       )}
+      {picking && <AvatarDialog kind="user" id="" name={name} avatar={user} onClose={() => setPicking(false)} />}
     </div>
-  );
-}
-
-function Avatar({ name, size }: { name: string; size: number }) {
-  return (
-    <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.45 }} aria-hidden="true">
-      {name[0]?.toUpperCase()}
-    </span>
   );
 }

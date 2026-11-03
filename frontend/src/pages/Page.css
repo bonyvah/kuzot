@@ -382,3 +382,15 @@ button.head-avatar:focus-visible::after {
   align-items: center;
   text-decoration: none;
 }
+
+.member--with-avatar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.member--with-avatar .avatar-tile {
+  grid-row: 1 / 3;
+}

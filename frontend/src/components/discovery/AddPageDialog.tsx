@@ -6,6 +6,7 @@ import { Button } from "../Button";
 import { defaultPageSettings, PageFields, pageSettingsErrors } from "../PageFields";
 import { TextField } from "../TextField";
 import { urlError } from "../urlForm";
+import { ChannelPicker, channelHints, type Custom, type Picked } from "./channels";
 import { newRow, PageReviewList, rowsError, rowsToInputs, type ReviewRow } from "./PageReviewList";
 import "../Dialog.css";
 import "./Discovery.css";
@@ -20,17 +21,19 @@ interface AddPageDialogProps {
 
 /** Add a page to a competitor: type its address, or describe it and let Kuzot find it. */
 export function AddPageDialog({ competitorId, competitorName, onSave, onClose }: AddPageDialogProps) {
-  const [mode, setMode] = useState<"address" | "find">("address");
+  const [mode, setMode] = useState<"address" | "find">("find");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Address mode
   const [url, setUrl] = useState("");
-  const [page, setPage] = useState(() => defaultPageSettings("pricing"));
+  const [page, setPage] = useState(() => defaultPageSettings("homepage"));
   const [fieldErrors, setFieldErrors] = useState<{ url?: string | null; label?: string | null; interval?: string | null }>({});
 
   // Find mode
   const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<Picked>({});
+  const [customs, setCustoms] = useState<Custom[]>([]);
   const [rows, setRows] = useState<ReviewRow[] | null>(null);
   const [findings, setFindings] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
@@ -43,16 +46,17 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
   }, []);
 
   const find = async () => {
-    if (!query.trim()) return setError("Describe the page you're looking for");
+    const hints = channelHints(picked, customs);
+    if (!query.trim() && !hints.length) return setError("Describe the page or pick a channel");
     setError(null);
     setSearching(true);
     setRows(null);
     abort.current = new AbortController();
     try {
-      const result = await discoveryApi.findPage(competitorId, query.trim(), abort.current.signal);
-      // Nothing is added until the user ticks it.
-      setRows(result.pages.map((p) => newRow(p.url, p.url_type, { label: p.label ?? "", reason: p.reason, keep: false })));
+      const result = await discoveryApi.findPage(competitorId, { looking_for: query.trim() || null, hints }, abort.current.signal);
+      setRows(result.pages.map((p) => newRow(p.url, p.url_type, { label: p.label ?? "", reason: p.reason })));
       setFindings(result.notes);
+      setMode("address");
     } catch (err) {
       if ((err as Error).name !== "AbortError") setError(errorText(err));
     } finally {
@@ -62,7 +66,11 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
 
   const save = async () => {
     let pages: UrlInput[];
-    if (mode === "address") {
+    if (rows) {
+      const problem = rowsError(rows);
+      if (problem) return setError(problem === "Keep or add at least one page to monitor" ? "Tick or add the pages to monitor" : problem);
+      pages = rowsToInputs(rows);
+    } else {
       const value = url.trim();
       const errors = { url: urlError(value), ...pageSettingsErrors(page) };
       setFieldErrors(errors);
@@ -75,10 +83,6 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
           scrape_interval_minutes: page.interval,
         },
       ];
-    } else {
-      const problem = rows ? rowsError(rows) : "Find pages first";
-      if (problem) return setError(problem === "Keep or add at least one page to monitor" ? "Tick the pages to add" : problem);
-      pages = rowsToInputs(rows ?? []);
     }
     setError(null);
     setSaving(true);
@@ -90,7 +94,8 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
     }
   };
 
-  const picked = rows?.filter((r) => r.keep).length ?? 0;
+  const ticked = rows?.filter((r) => r.keep).length ?? 0;
+  const hasHints = channelHints(picked, customs).length > 0;
 
   return (
     <dialog
@@ -107,7 +112,7 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (mode === "find" && !rows && !searching) find();
+          if (mode === "find" && !searching) find();
           else if (!saving && !searching) save();
         }}
       >
@@ -115,15 +120,29 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
           Monitor a page
         </h2>
         <div className="dialog-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={mode === "find"} onClick={() => setMode("find")}>
+            Find with AI
+          </button>
           <button type="button" role="tab" aria-selected={mode === "address"} onClick={() => setMode("address")}>
             Enter address
           </button>
-          <button type="button" role="tab" aria-selected={mode === "find"} onClick={() => setMode("find")}>
-            ✨ Find with AI
-          </button>
         </div>
 
-        {mode === "address" ? (
+        {mode === "address" && rows ? (
+          <div className="dialog__body add-page__results" role="tabpanel">
+            {findings.map((n) => (
+              <p key={n} className="wizard__note">
+                {n}
+              </p>
+            ))}
+            <p className="dialog__lead">
+              {rows.length
+                ? "Untick what you don't need, or add another address."
+                : "Nothing new found. Add the address yourself, or search again."}
+            </p>
+            <PageReviewList rows={rows} onChange={setRows} />
+          </div>
+        ) : mode === "address" ? (
           <div className="dialog__body" role="tabpanel">
             <TextField
               label="Page address"
@@ -138,43 +157,33 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
           </div>
         ) : (
           <div className="dialog__body" role="tabpanel">
-            <div className="add-page__find">
-              <TextField
-                label={`What should we find on ${competitorName}?`}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setRows(null);
-                }}
-                autoFocus
-                maxLength={500}
-              />
-              <Button type="button" onClick={find} disabled={searching}>
-                {searching ? "Searching…" : "Find"}
-              </Button>
-            </div>
-            <p className="add-page__hint">For example: their pricing page, Telegram channel, release notes.</p>
+            <TextField
+              label={`What should we find on ${competitorName}? (optional)`}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setRows(null);
+              }}
+              autoFocus
+              maxLength={500}
+            />
+            <p className="add-page__hint">For example: their pricing page, release notes. Or tick their channels below.</p>
+            <ChannelPicker
+              picked={picked}
+              onPick={(next) => {
+                setPicked(next);
+                setRows(null);
+              }}
+              customs={customs}
+              onCustoms={(next) => {
+                setCustoms(next);
+                setRows(null);
+              }}
+            />
             {searching && (
               <div className="wizard__searching" role="status">
                 <span className="wizard__spinner" aria-hidden="true" />
                 <p>Looking through {competitorName}'s site{findings.length ? "" : " and the web"}…</p>
-              </div>
-            )}
-            {rows && !searching && (
-              <div className="add-page__results">
-                {findings.map((n) => (
-                  <p key={n} className="wizard__note">
-                    {n}
-                  </p>
-                ))}
-                {rows.length ? (
-                  <>
-                    <p className="dialog__lead">Tick the pages to add.</p>
-                    <PageReviewList rows={rows} onChange={setRows} allowAdd={false} />
-                  </>
-                ) : (
-                  <p className="page__note">Nothing new found. Try describing it differently, or enter the address.</p>
-                )}
               </div>
             )}
           </div>
@@ -189,9 +198,20 @@ export function AddPageDialog({ competitorId, competitorName, onSave, onClose }:
           <Button variant="text" onClick={searching ? () => abort.current?.abort() : onClose} disabled={saving}>
             {searching ? "Stop searching" : "Cancel"}
           </Button>
-          <Button type="submit" variant="text" disabled={saving || searching || (mode === "find" && !picked)}>
-            {saving ? "Adding…" : mode === "find" && picked > 1 ? `Add ${picked} pages` : "Add"}
-          </Button>
+          {mode === "find" ? (
+            <>
+              <Button variant="text" onClick={() => setMode("address")} disabled={searching}>
+                Skip
+              </Button>
+              <Button type="submit" variant="text" disabled={searching || (!query.trim() && !hasHints)}>
+                {searching ? "Searching…" : "Find"}
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" variant="text" disabled={saving || (!!rows && !ticked)}>
+              {saving ? "Adding…" : ticked > 1 ? `Add ${ticked} pages` : "Add"}
+            </Button>
+          )}
         </div>
       </form>
     </dialog>

@@ -33,18 +33,20 @@ interface JobHistoryProps {
   urls: MonitoredUrl[];
   /** Only this page's jobs; null for all of the competitor's pages. */
   urlId: string | null;
+  /** Show only the latest this many jobs, in a compact table without paging. */
+  limit?: number;
 }
 
 /**
  * Scrape history for a competitor's pages. Polls every 2 s while a job is
  * queued or running, otherwise every 30 s to pick up scheduled runs.
  */
-export function JobHistory({ competitorId, urls, urlId }: JobHistoryProps) {
+export function JobHistory({ competitorId, urls, urlId, limit }: JobHistoryProps) {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const jobs = useQuery({
-    queryKey: [...keys.competitorJobs(competitorId), urlId, page],
-    queryFn: () => monitoringApi.competitorJobs(competitorId, urlId, page),
+    queryKey: [...keys.competitorJobs(competitorId), urlId, page, limit],
+    queryFn: () => monitoringApi.competitorJobs(competitorId, urlId, page, limit),
     placeholderData: (prev) => prev,
     refetchInterval: (query) =>
       query.state.data?.items.some((job) => isInFlight(job.status)) ? ACTIVE_POLL_MS : IDLE_POLL_MS,
@@ -111,7 +113,7 @@ export function JobHistory({ competitorId, urls, urlId }: JobHistoryProps) {
           </tbody>
         </table>
       </div>
-      {pages > 1 && (
+      {!limit && pages > 1 && (
         <div className="pager">
           <Button variant="text" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Newer

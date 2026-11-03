@@ -1,7 +1,7 @@
 import math
 from typing import Annotated
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from redis.asyncio import Redis
 from sqlalchemy.exc import IntegrityError
 
@@ -13,8 +13,11 @@ from app.crud.monitored_url import monitored_url_crud
 from app.crud.workspace import workspace_crud
 from app.db.dependencies import DBSession
 from app.db.redis import get_redis
+from app.insights.started import record_monitoring_started
+from app.services import avatars
 from app.models.org_member import MemberRole
 from app.schemas.common import MessageResponse, PaginatedResponse
+from app.schemas.organization import AvatarEmoji
 from app.schemas.competitor import (
     CompetitorCreate,
     CompetitorPublic,
@@ -44,10 +47,12 @@ async def create_competitor(
 
     # monitored URLs are unique across all competitors
     try:
-        return await competitor_crud.create(db, workspace_id=workspace_id, obj_in=body)
+        competitor = await competitor_crud.create(db, workspace_id=workspace_id, obj_in=body)
     except IntegrityError:
         await db.rollback()
         raise DuplicateURLError()
+    await record_monitoring_started(competitor.urls, org_id=workspace.org_id, workspace_id=workspace_id)
+    return competitor
 
 
 @router.get(
@@ -130,6 +135,7 @@ async def delete_competitor(
         raise HTTPException(status_code=404, detail="Workspace not found")
     await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
 
+    await avatars.delete_files(competitor)
     await competitor_crud.delete(db, competitor)
     return MessageResponse(message="Competitor deleted successfully")
 
@@ -162,6 +168,7 @@ async def add_monitored_url(
         await db.rollback()
         raise DuplicateURLError()
 
+    await record_monitoring_started([monitored_url], org_id=workspace.org_id, workspace_id=workspace.id)
     await invalidate_cache_pattern(redis, f"competitor:{competitor_id}:urls")
     return monitored_url
 
@@ -188,3 +195,49 @@ async def delete_monitored_url(
     await monitored_url_crud.delete(db, monitored_url)
     await invalidate_cache_pattern(redis, f"competitor:{competitor.id}:urls")
     return MessageResponse(message="Monitored URL deleted successfully")
+
+
+# ── Avatar ─────────────────────────────────────────────────────────────────────
+
+async def _competitor_for_member(competitor_id: UUID, current_user: CurrentUser, db: DBSession):
+    competitor = await competitor_crud.get_by_id(db, competitor_id)
+    if not competitor:
+        raise CompetitorNotFoundError(str(competitor_id))
+    workspace = await workspace_crud.get_by_id(db, competitor.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    # same rule as editing a competitor
+    await require_org_role(current_user, workspace.org_id, MemberRole.MEMBER, db)
+    return competitor
+
+
+@router.put("/competitors/{competitor_id}/avatar", response_model=CompetitorPublic)
+async def set_competitor_emoji(
+    competitor_id: UUID,
+    body: AvatarEmoji,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    competitor = await _competitor_for_member(competitor_id, current_user, db)
+    return await avatars.set_emoji(db, competitor, body.emoji)
+
+
+@router.post("/competitors/{competitor_id}/avatar/image", response_model=CompetitorPublic)
+async def upload_competitor_image(
+    competitor_id: UUID,
+    file: UploadFile,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    competitor = await _competitor_for_member(competitor_id, current_user, db)
+    return await avatars.set_image(db, competitor, file, prefix="competitors")
+
+
+@router.delete("/competitors/{competitor_id}/avatar", response_model=CompetitorPublic)
+async def clear_competitor_avatar(
+    competitor_id: UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    competitor = await _competitor_for_member(competitor_id, current_user, db)
+    return await avatars.clear(db, competitor)

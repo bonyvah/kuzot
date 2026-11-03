@@ -70,10 +70,10 @@ export function AvatarDialog({ kind, id, name, avatar, onClose }: AvatarDialogPr
     >
       <div className="dialog__form">
         <div className="avatar-dialog__head">
-          <Avatar name={name} avatar={current} size={56} />
+          <Avatar name={name} avatar={current} size={56} round={kind === "user"} />
           <div>
             <h2 id="avatar-dialog-title" className="dialog__title">
-              Icon for {name}
+              {kind === "user" ? "Your picture" : `Icon for ${name}`}
             </h2>
             <p className="avatar-dialog__hint">Shown in menus, cards and headers.</p>
           </div>

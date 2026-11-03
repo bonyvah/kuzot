@@ -27,6 +27,9 @@ class Competitor(Base):
     name: Mapped[str] = mapped_column(String(255), index=True)
     description: Mapped[str | None] = mapped_column(Text)
     website_url: Mapped[str | None] = mapped_column(String(2048))
+    # avatar: an emoji or an uploaded image (S3 key), never both
+    avatar_emoji: Mapped[str | None] = mapped_column(String(32))
+    avatar_key: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

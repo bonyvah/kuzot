@@ -6,6 +6,7 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
+from app.core import storage
 from app.core.auth_dependencies import CurrentUser, require_org_role
 from app.core.exceptions import CompetitorNotFoundError
 from app.crud.competitor import competitor_crud
@@ -73,19 +74,26 @@ async def _feed(
     competitor_ids = {UUID(d["competitor_id"]) for d in docs}
     rows = (
         await db.execute(
-            select(Competitor.id, Competitor.name, Workspace.id, Workspace.name)
+            select(Competitor.id, Competitor.name, Competitor.avatar_emoji, Competitor.avatar_key, Workspace.name)
             .join(Workspace, Workspace.id == Competitor.workspace_id)
             .where(Competitor.id.in_(competitor_ids))
         )
     ).all() if competitor_ids else []
-    names = {str(c_id): (c_name, w_name) for c_id, c_name, _, w_name in rows}
+    names = {
+        str(c_id): {
+            "competitor_name": c_name,
+            "competitor_avatar_emoji": emoji,
+            "competitor_avatar_url": storage.public_url(key) if key else None,
+            "workspace_name": w_name,
+        }
+        for c_id, c_name, emoji, key, w_name in rows
+    }
 
     items = [
         InsightPublic(
             **{k: v for k, v in d.items() if k != "_id"},
             id=str(d["_id"]),
-            competitor_name=names[d["competitor_id"]][0],
-            workspace_name=names[d["competitor_id"]][1],
+            **names[d["competitor_id"]],
         )
         for d in docs
         if d["competitor_id"] in names

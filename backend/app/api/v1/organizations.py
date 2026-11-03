@@ -95,7 +95,7 @@ async def delete_organization(
             detail="Personal organizations cannot be deleted",
         )
     for workspace in await workspace_crud.list_by_org(db, org_id=org.id):
-        await avatars.delete_files(workspace)
+        await avatars.delete_workspace_files(workspace)
     await avatars.delete_files(org)
     await organization_crud.delete(db, org)
     return MessageResponse(message="Organization deleted successfully")

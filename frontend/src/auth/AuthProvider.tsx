@@ -14,6 +14,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string | null) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Re-read the signed-in user, e.g. after changing their avatar. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -81,7 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     dropSession();
   }, [dropSession]);
 
-  const value = useMemo(() => ({ state, signIn, signUp, signOut }), [state, signIn, signUp, signOut]);
+  const refreshUser = useCallback(async () => {
+    const user = await authApi.me();
+    setState({ status: "authenticated", user });
+  }, []);
+
+  const value = useMemo(
+    () => ({ state, signIn, signUp, signOut, refreshUser }),
+    [state, signIn, signUp, signOut, refreshUser],
+  );
 
   return <AuthContext value={value}>{children}</AuthContext>;
 }

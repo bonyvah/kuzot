@@ -14,11 +14,15 @@ class DiffLine(BaseModel):
 
 class InsightPublic(BaseModel):
     id: str
+    # monitoring_started: the page was just added; no diff, only the headline
+    kind: Literal["change", "monitoring_started"] = "change"
     org_id: UUID
     workspace_id: UUID
     workspace_name: str
     competitor_id: UUID
     competitor_name: str
+    competitor_avatar_emoji: str | None = None
+    competitor_avatar_url: str | None = None
     monitored_url_id: UUID
     url: str
     url_type: URLType

@@ -89,3 +89,35 @@ async def test_workspace_avatar_and_permissions(client: AsyncClient, bucket):
     await client.post(f"/api/v1/organizations/{team['id']}/members", json={"email": "avatar-ws@example.com"}, headers=owner)
     denied = await client.put(f"/api/v1/organizations/{team['id']}/avatar", json={"emoji": "🔥"}, headers=headers)
     assert denied.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_competitor_and_user_avatars(client: AsyncClient, bucket):
+    headers, org, ws = await _setup(client, "avatar-more@example.com")
+    comp = (await client.post(f"/api/v1/workspaces/{ws['id']}/competitors", json={"name": "Brightdesk"}, headers=headers)).json()
+    assert comp["avatar_emoji"] is None
+
+    res = await client.put(f"/api/v1/competitors/{comp['id']}/avatar", json={"emoji": "☀️"}, headers=headers)
+    assert res.status_code == 200, res.text
+    listed = (await client.get(f"/api/v1/workspaces/{ws['id']}/competitors", headers=headers)).json()["items"]
+    assert listed[0]["avatar_emoji"] == "☀️"
+
+    res = await client.post(
+        f"/api/v1/competitors/{comp['id']}/avatar/image", files={"file": ("b.png", PNG, "image/png")}, headers=headers
+    )
+    assert res.json()["avatar_url"].startswith(f"/media/avatars/competitors/{comp['id']}/")
+
+    # Your own avatar, shown on /me and in member lists
+    res = await client.put("/api/v1/auth/me/avatar", json={"emoji": "🦊"}, headers=headers)
+    assert res.status_code == 200, res.text
+    assert (await client.get("/api/v1/auth/me", headers=headers)).json()["avatar_emoji"] == "🦊"
+    res = await client.post("/api/v1/auth/me/avatar/image", files={"file": ("me.png", PNG, "image/png")}, headers=headers)
+    me_url = res.json()["avatar_url"]
+    assert me_url.startswith("/media/avatars/users/")
+    members = (await client.get(f"/api/v1/organizations/{org['id']}/members", headers=headers)).json()
+    assert members[0]["avatar_url"] == me_url and members[0]["avatar_emoji"] is None
+
+    # Deleting the workspace removes its competitors' images too
+    await client.delete("/api/v1/auth/me/avatar", headers=headers)
+    assert (await client.delete(f"/api/v1/workspaces/{ws['id']}", headers=headers)).status_code == 200
+    assert bucket == {}

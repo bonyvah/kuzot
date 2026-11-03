@@ -112,7 +112,7 @@ function CompetitorList({ id, workspaceId }: { id: string; workspaceId: string }
       {items.map((c) => (
         <li key={c.id}>
           <NavLink to={`/competitors/${c.id}`} className="nav-item tree__child" title={c.name}>
-            <Avatar name={c.name} size={18} className="nav-item__avatar" />
+            <Avatar name={c.name} avatar={c} size={18} className="nav-item__avatar" />
             <span className="nav-item__label tree__name">{c.name}</span>
           </NavLink>
         </li>

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.monitored_url import URLType
 
@@ -21,7 +21,15 @@ class DiscoverRequest(BaseModel):
 
 
 class FindPageRequest(BaseModel):
-    looking_for: str = Field(min_length=1, max_length=500)
+    looking_for: str | None = Field(default=None, max_length=500)
+    hints: list[ChannelHint] = Field(default=[], max_length=20)
+
+    @model_validator(mode="after")
+    def _something_to_find(self) -> "FindPageRequest":
+        self.looking_for = (self.looking_for or "").strip() or None
+        if not self.looking_for and not self.hints:
+            raise ValueError("Say what to find or pick a channel")
+        return self
 
 
 class DiscoveredPage(BaseModel):

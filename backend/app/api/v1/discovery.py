@@ -73,6 +73,7 @@ async def find_competitor_page(
             website=competitor.website_url,
             description=competitor.description,
             looking_for=body.looking_for,
+            hints=[Hint(h.url_type, h.value, h.label) for h in body.hints],
             exclude={u.url for u in competitor.urls},
         )
     )

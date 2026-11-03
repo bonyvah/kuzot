@@ -1,33 +1,18 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ApiError, errorText } from "../../api/client";
-import { discoveryApi, type ChannelHint, type Competitor, type UrlType } from "../../api/monitoring";
+import { discoveryApi, type Competitor } from "../../api/monitoring";
 import { useCreateCompetitor } from "../../api/queries";
 import { Button } from "../Button";
 import { TextArea } from "../TextArea";
 import { TextField } from "../TextField";
 import { urlError } from "../urlForm";
+import { CHANNELS, ChannelPicker, channelHints, type Custom, type Picked } from "./channels";
 import { newRow, PageReviewList, rowsError, rowsToInputs, type ReviewRow } from "./PageReviewList";
 import "../Dialog.css";
 import "./Discovery.css";
 
 type Step = 1 | 2 | 3;
-
-type ChannelKey = "instagram" | "telegram" | "facebook" | "x" | "web";
-
-const CHANNELS: { key: ChannelKey; label: string; type: UrlType; placeholder: string; icon: ReactNode }[] = [
-  { key: "instagram", label: "Instagram", type: "instagram", placeholder: "@handle or link", icon: <IconInstagram /> },
-  { key: "telegram", label: "Telegram", type: "telegram", placeholder: "@channel or t.me link", icon: <IconTelegram /> },
-  { key: "facebook", label: "Facebook", type: "facebook", placeholder: "Page name or link", icon: <IconFacebook /> },
-  { key: "x", label: "X", type: "x", placeholder: "@handle or link", icon: <IconX /> },
-  { key: "web", label: "Web", type: "homepage", placeholder: "Another web page, e.g. a marketplace listing", icon: <IconWeb /> },
-];
-
-interface Custom {
-  key: number;
-  label: string;
-  value: string;
-}
 
 interface CompetitorWizardProps {
   workspaceId: string;
@@ -51,7 +36,7 @@ export function CompetitorWizard({ workspaceId, onClose, onCreated }: Competitor
 
   // Step 2
   const [notes, setNotes] = useState("");
-  const [picked, setPicked] = useState<Partial<Record<ChannelKey, string>>>({});
+  const [picked, setPicked] = useState<Picked>({});
   const [customs, setCustoms] = useState<Custom[]>([]);
 
   // Step 3
@@ -93,14 +78,7 @@ export function CompetitorWizard({ workspaceId, onClose, onCreated }: Competitor
     setSearching(true);
     stoppedBy.current = "stop";
     abort.current = new AbortController();
-    const hints: ChannelHint[] = [
-      ...CHANNELS.filter((c) => picked[c.key] !== undefined && !(c.key === "web" && !picked[c.key]?.trim())).map(
-        (c) => ({ url_type: c.type, value: picked[c.key]?.trim() ?? "" }),
-      ),
-      ...customs
-        .filter((c) => c.value.trim())
-        .map((c) => ({ url_type: "other" as const, value: c.value.trim(), label: c.label.trim() || null })),
-    ];
+    const hints = channelHints(picked, customs);
     try {
       const result = await discoveryApi.forNewCompetitor(
         workspaceId,
@@ -212,78 +190,7 @@ export function CompetitorWizard({ workspaceId, onClose, onCreated }: Competitor
                 rows={2}
                 maxLength={2000}
               />
-              <div className="channels" role="group" aria-label="Channels">
-                {CHANNELS.map((c) => {
-                  const on = picked[c.key] !== undefined;
-                  return (
-                    <button
-                      key={c.key}
-                      type="button"
-                      className={`channel${on ? " channel--on" : ""}`}
-                      aria-pressed={on}
-                      onClick={() =>
-                        setPicked((p) => {
-                          const next = { ...p };
-                          if (on) delete next[c.key];
-                          else next[c.key] = "";
-                          return next;
-                        })
-                      }
-                    >
-                      {c.icon}
-                      {c.label}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  className="channel"
-                  onClick={() => setCustoms((cs) => [...cs, { key: Date.now(), label: "", value: "" }])}
-                >
-                  <IconPlus />
-                  More…
-                </button>
-              </div>
-              <div className="channel-fields">
-                {CHANNELS.filter((c) => picked[c.key] !== undefined).map((c) => (
-                  <label key={c.key} className="channel-field">
-                    <span className="channel-field__name">
-                      {c.icon}
-                      {c.label}
-                    </span>
-                    <input
-                      value={picked[c.key]}
-                      placeholder={c.key === "web" ? c.placeholder : `${c.placeholder} (optional)`}
-                      onChange={(e) => setPicked((p) => ({ ...p, [c.key]: e.target.value }))}
-                    />
-                  </label>
-                ))}
-                {customs.map((c) => (
-                  <div key={c.key} className="channel-field channel-field--custom">
-                    <input
-                      className="channel-field__label"
-                      placeholder="Channel, e.g. LinkedIn"
-                      aria-label="Channel name"
-                      value={c.label}
-                      onChange={(e) => setCustoms((cs) => cs.map((x) => (x.key === c.key ? { ...x, label: e.target.value } : x)))}
-                    />
-                    <input
-                      placeholder="Link"
-                      aria-label="Channel link"
-                      value={c.value}
-                      onChange={(e) => setCustoms((cs) => cs.map((x) => (x.key === c.key ? { ...x, value: e.target.value } : x)))}
-                    />
-                    <button
-                      type="button"
-                      className="channel-field__remove"
-                      aria-label="Remove this channel"
-                      onClick={() => setCustoms((cs) => cs.filter((x) => x.key !== c.key))}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <ChannelPicker picked={picked} onPick={setPicked} customs={customs} onCustoms={setCustoms} />
             </div>
           </>
         )}
@@ -370,62 +277,8 @@ export function CompetitorWizard({ workspaceId, onClose, onCreated }: Competitor
   );
 }
 
-function hints(picked: Partial<Record<ChannelKey, string>>, customs: Custom[]): string {
+function hints(picked: Picked, customs: Custom[]): string {
   const names = CHANNELS.filter((c) => picked[c.key] !== undefined && c.key !== "web").map((c) => c.label);
   names.push(...customs.filter((c) => c.value.trim()).map((c) => c.label.trim() || "your links"));
   return names.length ? ` and ${names.join(", ")}` : "";
-}
-
-// Simple channel glyphs (not brand logos).
-function Glyph({ children }: { children: ReactNode }) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      {children}
-    </svg>
-  );
-}
-function IconInstagram() {
-  return (
-    <Glyph>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" />
-    </Glyph>
-  );
-}
-function IconTelegram() {
-  return (
-    <Glyph>
-      <path d="M21 4 3 11l6 2.5L19 7l-8 8.2V20l3.2-3.4L18 19z" />
-    </Glyph>
-  );
-}
-function IconFacebook() {
-  return (
-    <Glyph>
-      <path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8z" />
-    </Glyph>
-  );
-}
-function IconX() {
-  return (
-    <Glyph>
-      <path d="m5 4 14 16M19 4 5 20" />
-    </Glyph>
-  );
-}
-function IconWeb() {
-  return (
-    <Glyph>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.5 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.5-3.5-8.5s1-5.9 3.5-8.5z" />
-    </Glyph>
-  );
-}
-function IconPlus() {
-  return (
-    <Glyph>
-      <path d="M12 5v14M5 12h14" />
-    </Glyph>
-  );
 }

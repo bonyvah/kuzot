@@ -11,6 +11,7 @@ import {
   useWorkspace,
 } from "../api/queries";
 import { useUser } from "../auth/AuthProvider";
+import { Avatar } from "../components/Avatar";
 import { AvatarDialog } from "../components/AvatarDialog";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
@@ -163,7 +164,10 @@ function CompetitorCard({ competitor: c }: { competitor: Competitor }) {
 
   return (
     <Link to={`/competitors/${c.id}`} className="card">
-      <h3 className="card__title">{c.name}</h3>
+      <div className="card__head">
+        <Avatar name={c.name} avatar={c} size={36} />
+        <h3 className="card__title">{c.name}</h3>
+      </div>
       {c.website_url && <p className="card__text">{hostname(c.website_url)}</p>}
       <div className="card__meta">
         {!c.is_active && <Chip tone="warning">Paused</Chip>}

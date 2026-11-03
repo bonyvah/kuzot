@@ -18,3 +18,7 @@
   object-fit: cover;
   background: var(--surface-highest);
 }
+
+.avatar-tile--round {
+  border-radius: 50%;
+}

@@ -17,12 +17,7 @@ export function HomePage() {
 
   return (
     <div className="page page--feed">
-      <div className="page__head">
-        <div className="page__heading">
-          <h1 className="page__title">Insights</h1>
-          <p className="page__subtitle">What your competitors changed, across every workspace in {current.name}.</p>
-        </div>
-      </div>
+      
       <InsightFeed
         key={current.id}
         scope={{ kind: "organization", id: current.id }}
