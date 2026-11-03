@@ -31,7 +31,13 @@
 .feed__more {
   display: flex;
   justify-content: center;
+  min-height: 40px; /* the infinite-scroll trigger needs a size */
   margin-top: 16px;
+}
+
+.feed__end {
+  margin-top: 16px;
+  text-align: center;
 }
 
 .insight {
@@ -171,3 +177,51 @@
   background: var(--primary-hover);
 }
 
+
+/* Card preview: one part of the change, height-capped; the rest opens in a dialog. */
+.insight__preview {
+  position: relative;
+  max-height: 168px;
+  overflow: hidden;
+}
+
+.insight__preview--clipped::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 48px;
+  background: linear-gradient(transparent, var(--surface-high));
+  pointer-events: none;
+}
+
+.insight-dialog {
+  width: 760px;
+}
+
+.insight-dialog__inner {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 64px);
+  padding: 24px;
+}
+
+.insight-dialog__body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.insight-dialog__close {
+  margin-left: auto;
+}
+
+.insight--openable {
+  cursor: pointer;
+}
+
+.insight--openable:hover {
+  background: color-mix(in srgb, var(--surface-high), var(--text) 4%);
+}
+
+.insight-dialog {
+  cursor: auto;
+}

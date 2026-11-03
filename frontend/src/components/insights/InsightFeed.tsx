@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { errorText } from "../../api/client";
 import type { InsightFilters, InsightScope, Workspace } from "../../api/monitoring";
@@ -23,6 +23,22 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
   const competitorSource = scope.kind === "workspace" ? scope.id : (filters.workspaceId ?? "");
   const competitors = useCompetitors(scope.kind === "competitor" ? "" : competitorSource);
   const visibleCompetitors = competitors.data?.items;
+
+  // Infinite scroll: load older insights when the end of the list comes near.
+  const sentinel = useRef<HTMLDivElement>(null);
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = feed;
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !hasNextPage || isFetchingNextPage || isFetchNextPageError) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) fetchNextPage();
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
 
   return (
     <section className="feed" aria-label="Insights">
@@ -83,13 +99,19 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
         ))}
       </ol>
 
-      {feed.hasNextPage && (
-        <div className="feed__more">
-          <Button variant="text" disabled={feed.isFetchingNextPage} onClick={() => feed.fetchNextPage()}>
-            {feed.isFetchingNextPage ? "Loading…" : "Load older insights"}
-          </Button>
+      {hasNextPage && (
+        <div ref={sentinel} className="feed__more" role="status">
+          {isFetchNextPageError ? (
+            // Stop auto-loading after a failure; let the user retry.
+            <Button variant="text" onClick={() => fetchNextPage()}>
+              Couldn't load more. Try again
+            </Button>
+          ) : (
+            <span className="page__note">{isFetchingNextPage ? "Loading older insights…" : ""}</span>
+          )}
         </div>
       )}
+      {feed.data && items.length > 0 && !hasNextPage && <p className="feed__end page__note">You're all caught up.</p>}
     </section>
   );
 }
