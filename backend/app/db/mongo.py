@@ -25,6 +25,10 @@ async def connect_to_mongo() -> None:
         [("monitored_url_id", 1), ("detected_at", -1)]
     )
     await mongodb.db.page_chunks.create_index([("monitored_url_id", 1)])
+    # the agent's compare_pricing tool: a workspace's current pricing text
+    await mongodb.db.page_chunks.create_index(
+        [("workspace_id", 1), ("url_type", 1), ("removed_at", 1)]
+    )
     await mongodb.db.reports.create_index([("workspace_id", 1), ("created_at", -1)])
     # insight feeds: newest first per org, workspace or competitor
     for scope in ("org_id", "workspace_id", "competitor_id"):

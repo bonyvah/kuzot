@@ -1,4 +1,4 @@
-.PHONY: help up down restart status logs logs-api logs-frontend test clean
+.PHONY: help up down restart status logs logs-api logs-frontend test evals evals-offline clean
 
 # Default target
 .DEFAULT_GOAL := help
@@ -44,6 +44,12 @@ logs-frontend: ## View live logs from the frontend container
 
 test: ## Run backend unit/integration tests
 	cd backend && poetry run pytest
+
+evals: ## Run the agent evals (calls OpenAI; costs tokens)
+	cd backend && PROMPTFOO_DISABLE_TELEMETRY=1 uv run npx --yes promptfoo@0.125.1 eval -c evals/promptfooconfig.yaml --no-cache --no-write
+
+evals-offline: ## Run only the evals that need no API key
+	cd backend && PROMPTFOO_DISABLE_TELEMETRY=1 uv run npx --yes promptfoo@0.125.1 eval -c evals/promptfooconfig.yaml --no-cache --no-write --filter-metadata tier=offline
 
 clean: ## Stop containers and remove volumes
 	docker compose down -v
