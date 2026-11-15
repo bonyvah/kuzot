@@ -46,7 +46,8 @@ const newestFirst = (a: Insight, b: Insight) =>
 export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps) {
   const [filters, setFilters] = useState<InsightFilters>({});
   const { current: org } = useOrg();
-  const counts = useInsightCounts(org?.id, filters.minSeverity);
+  // The Unread tab and its badge cover every unread insight, whatever importance is picked
+  const counts = useInsightCounts(org?.id);
   const unread = unreadIn(counts.data, scope, filters);
   const markAllRead = useMarkAllRead(org?.id);
   const markSeen = useSeenQueue();
@@ -58,9 +59,11 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
   const firstTab = useRef<InsightTab>(undefined);
   if (!firstTab.current && countsSettled) firstTab.current = unread ? "unread" : "all";
   const tab = chosenTab ?? firstTab.current;
+  // importance applies to All and Saved only; it's remembered while on Unread
+  const applied: InsightFilters = tab === "unread" ? { ...filters, minSeverity: undefined } : filters;
 
-  const feed = useInsightFeed(scope, filters, tab ?? "all", !!tab);
-  const filtered = !!(filters.workspaceId || filters.competitorId || filters.minSeverity);
+  const feed = useInsightFeed(scope, applied, tab ?? "all", !!tab);
+  const filtered = !!(applied.workspaceId || applied.competitorId || applied.minSeverity);
   // Competitors to filter by: the workspace's own, or the picked workspace's in an org feed.
   const competitorSource = scope.kind === "workspace" ? scope.id : (filters.workspaceId ?? "");
   const competitors = useCompetitors(scope.kind === "competitor" ? "" : competitorSource);
@@ -68,7 +71,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
 
   // Keep every card shown since the tab opened, so reading the Unread tab, or
   // a refetch, doesn't pull cards out from under the reader. New ones still arrive.
-  const view = JSON.stringify([scope, filters, tab]);
+  const view = JSON.stringify([scope, applied, tab]);
   const shown = useRef({ view, openedAt: Date.now(), cards: new Map<string, Insight>() });
   if (shown.current.view !== view) shown.current = { view, openedAt: Date.now(), cards: new Map() };
   const { data, dataUpdatedAt } = feed;
@@ -109,7 +112,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
     markAllRead.mutate({
       workspace_id: scope.kind === "workspace" ? scope.id : filters.workspaceId,
       competitor_id: scope.kind === "competitor" ? scope.id : filters.competitorId,
-      min_severity: filters.minSeverity,
+      min_severity: applied.minSeverity,
     });
 
   return (
@@ -138,15 +141,17 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
       </div>
 
       <div className="feed__filters">
-        <select
-          aria-label="Importance"
-          value={filters.minSeverity ?? ""}
-          onChange={(e) => setFilters({ ...filters, minSeverity: (e.target.value || undefined) as MinSeverity | undefined })}
-        >
-          <option value="">Any importance</option>
-          <option value="medium">Notable and up</option>
-          <option value="high">High impact only</option>
-        </select>
+        {tab !== "unread" && (
+          <select
+            aria-label="Importance"
+            value={filters.minSeverity ?? ""}
+            onChange={(e) => setFilters({ ...filters, minSeverity: (e.target.value || undefined) as MinSeverity | undefined })}
+          >
+            <option value="">Any importance</option>
+            <option value="medium">Notable and up</option>
+            <option value="high">High impact only</option>
+          </select>
+        )}
         {workspaces && workspaces.length > 1 && (
           <select
             aria-label="Workspace"
