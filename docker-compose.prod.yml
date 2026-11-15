@@ -1,0 +1,219 @@
+# Production: one server, everything in Docker, nginx in front with TLS.
+#
+# On the server this file is /opt/kuzot/docker-compose.yml, next to a .env made
+# from .env.prod.example. Images come from GHCR (built by .github/workflows/deploy.yml):
+#   docker compose pull && docker compose up -d
+# Roll back by pinning an earlier build:  TAG=<commit sha> docker compose up -d
+#
+# Only nginx is reachable from outside (80, 443). Databases, the broker and
+# object storage have no published ports.
+
+name: kuzot-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend: &backend
+  image: ${IMAGE_PREFIX:-ghcr.io/bonyvah/kuzot}-backend:${TAG:-latest}
+  build: ./backend
+  restart: unless-stopped
+  logging: *logging
+  env_file: ${ENV_FILE:-.env}   # ENV_FILE: only to test this file away from the server
+  environment: &backend-env
+    APP_ENV: prod
+    # connection strings are built here from the passwords in .env
+    DATABASE_URL: postgresql+asyncpg://kuzot:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/kuzot
+    MONGO_URI: mongodb://kuzot:${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}@mongodb:27017/kuzot?authSource=admin
+    REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+    CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/1
+    RABBITMQ_URL: amqp://kuzot:${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}@rabbitmq:5672/
+    # avatars live in the MinIO container; nginx serves them under /media
+    AWS_ENDPOINT_URL: http://minio:9000
+    AWS_ACCESS_KEY_ID: kuzot
+    AWS_SECRET_ACCESS_KEY: ${MINIO_PASSWORD:?set MINIO_PASSWORD in .env}
+    MEDIA_BASE_URL: /media
+    REFRESH_COOKIE_SECURE: "true"
+    ALLOWED_ORIGINS: '["https://${DOMAIN:?set DOMAIN in .env}"]'
+  depends_on: &backend-deps
+    postgres:
+      condition: service_healthy
+    mongodb:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
+services:
+
+  # ─── Data ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: kuzot
+      POSTGRES_USER: kuzot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kuzot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: kuzot
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      RABBITMQ_DEFAULT_USER: kuzot
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    logging: *logging
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: kuzot
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    volumes:
+      - miniodata:/data
+
+  # ─── Backend ───────────────────────────────────────────────────
+  api:
+    <<: *backend
+    # migrations run first (entrypoint.sh); --proxy-headers: nginx is in front
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--workers", "2", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    depends_on:
+      <<: *backend-deps
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  worker_scraping:
+    <<: *backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "scraping",
+              "--pool=gevent", "--concurrency=50", "--loglevel=info"]
+
+  worker_browser:
+    <<: *backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "browser",
+              "--pool=prefork", "--concurrency=2", "--loglevel=info"]
+    user: "1000:1000"      # untrusted pages: don't run Chromium as root
+    shm_size: "512mb"      # Chromium needs more than Docker's default 64MB /dev/shm
+
+  worker_embedding:
+    <<: *backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "embedding",
+              "--pool=prefork", "--concurrency=2", "--loglevel=info"]
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel=info",
+              "--schedule", "/tmp/celerybeat-schedule"]
+
+  # ─── Edge ──────────────────────────────────────────────────────
+  web:
+    image: ${IMAGE_PREFIX:-ghcr.io/bonyvah/kuzot}-web:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      S3_BUCKET_MEDIA: ${S3_BUCKET_MEDIA:-kuzot-media}
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  # Issues the certificate once nginx answers on port 80, then renews it.
+  # Without CERTBOT_EMAIL it does nothing and nginx keeps a self-signed one.
+  certbot:
+    image: certbot/certbot:v3.0.1
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      DOMAIN: ${DOMAIN}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        trap exit TERM
+        if [ -z "$$CERTBOT_EMAIL" ]; then echo "CERTBOT_EMAIL not set: no certificate"; exec sleep infinity; fi
+        until certbot certonly --webroot -w /var/www/certbot -d "$$DOMAIN" \
+              --email "$$CERTBOT_EMAIL" --agree-tos --no-eff-email --non-interactive --keep-until-expiring; do
+          echo "certbot: retrying in 60s"; sleep 60 & wait $$!
+        done
+        while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $$!; done
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  mongodata:
+  redisdata:
+  rabbitmqdata:
+  miniodata:
+  letsencrypt:
+  certbot-www:

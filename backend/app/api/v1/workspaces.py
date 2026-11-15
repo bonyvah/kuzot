@@ -2,7 +2,6 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from app.core.auth_dependencies import CurrentUser, require_org_role
-from app.crud.organization import organization_crud
 from app.crud.workspace import workspace_crud
 from app.db.dependencies import DBSession
 from app.models.org_member import MemberRole

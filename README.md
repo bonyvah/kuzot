@@ -56,3 +56,7 @@ docker compose exec -T -e KUZOT_MCP_WORKSPACE_ID=<workspace-uuid> api python -m 
 make evals          # all 20; calls OpenAI
 make evals-offline  # the 9 that need no API key
 ```
+
+## Deployment
+
+One server, Docker Compose, nginx with Let's Encrypt in front; every push to `main` tests, builds images into GHCR and deploys. Setup and operations: [DEPLOY.md](DEPLOY.md).
