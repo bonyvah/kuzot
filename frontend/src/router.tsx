@@ -31,7 +31,9 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <HomePage /> },
+          { index: true, element: <HomePage tab="unread" /> },
+          { path: "insights/all", element: <HomePage tab="all" /> },
+          { path: "insights/saved", element: <HomePage tab="saved" /> },
           { path: "workspaces", element: <WorkspacesPage /> },
           {
             path: "workspaces/:workspaceId",

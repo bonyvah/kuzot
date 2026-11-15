@@ -56,6 +56,18 @@ function Shell() {
           <span className="nav-item__label">Insights</span>
           <UnreadBadge count={unread.data?.total} />
         </NavLink>
+        <NavLink to="/insights/all" className="nav-item nav-sub">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" />
+          </svg>
+          <span className="nav-item__label">All insights</span>
+        </NavLink>
+        <NavLink to="/insights/saved" className="nav-item nav-sub">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+          </svg>
+          <span className="nav-item__label">Saved</span>
+        </NavLink>
         <NavLink to="/workspaces" end className="nav-item">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path fill="currentColor" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />

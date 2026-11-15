@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { errorText } from "../../api/client";
 import type {
@@ -22,7 +23,14 @@ interface InsightFeedProps {
   /** Offer a workspace filter (organization feed). */
   workspaces?: Workspace[];
   emptyAction?: React.ReactNode;
+  /** Show only this tab, without the tab bar (the organization's pages, one per tab). */
+  tab?: InsightTab;
 }
+
+const TITLES: Record<InsightTab, string> = { unread: "Unread", all: "All insights", saved: "Saved" };
+
+// where a single-tab feed sends "See all insights"
+const ALL_INSIGHTS_PATH = "/insights/all";
 
 const TABS: { id: InsightTab; label: string }[] = [
   { id: "unread", label: "Unread" },
@@ -43,7 +51,8 @@ function unreadIn(counts: InsightCounts | undefined, scope: InsightScope, filter
 const newestFirst = (a: Insight, b: Insight) =>
   b.detected_at.localeCompare(a.detected_at) || b.id.localeCompare(a.id);
 
-export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps) {
+export function InsightFeed({ scope, workspaces, emptyAction, tab: fixedTab }: InsightFeedProps) {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<InsightFilters>({});
   const { current: org } = useOrg();
   // The Unread tab and its badge cover every unread insight, whatever importance is picked
@@ -58,7 +67,8 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
   const countsSettled = !org?.id || counts.isSuccess || counts.isError;
   const firstTab = useRef<InsightTab>(undefined);
   if (!firstTab.current && countsSettled) firstTab.current = unread ? "unread" : "all";
-  const tab = chosenTab ?? firstTab.current;
+  const tab = fixedTab ?? chosenTab ?? firstTab.current;
+  const showAll = () => (fixedTab ? navigate(ALL_INSIGHTS_PATH) : setTab("all"));
   // importance applies to All and Saved only; it's remembered while on Unread
   const applied: InsightFilters = tab === "unread" ? { ...filters, minSeverity: undefined } : filters;
 
@@ -115,25 +125,48 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
       min_severity: applied.minSeverity,
     });
 
+  const importance = (
+    <select
+      aria-label="Importance"
+      className="feed__select"
+      value={filters.minSeverity ?? ""}
+      onChange={(e) => setFilters({ ...filters, minSeverity: (e.target.value || undefined) as MinSeverity | undefined })}
+    >
+      <option value="">Any importance</option>
+      <option value="medium">Notable and up</option>
+      <option value="high">High impact only</option>
+    </select>
+  );
+
   return (
     <section className="feed" aria-label="Insights">
       <div className="feed__bar">
-        <div className="feed__tabs" role="tablist" aria-label="Show">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              className="feed__tab"
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-              {t.id === "unread" && !!unread && <span className="feed__count">{unread > 99 ? "99+" : unread}</span>}
-            </button>
-          ))}
-        </div>
-        {!!unread && (
+        {fixedTab ? (
+          // Unread is the home page: no title. All and Saved name themselves, importance beside it.
+          fixedTab !== "unread" && (
+            <>
+              <h1 className="feed__title">{TITLES[fixedTab]}</h1>
+              {importance}
+            </>
+          )
+        ) : (
+          <div className="feed__tabs" role="tablist" aria-label="Show">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                className="feed__tab"
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+                {t.id === "unread" && !!unread && <span className="feed__count">{unread > 99 ? "99+" : unread}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        {!!unread && tab !== "saved" && (
           <Button variant="text" className="feed__read-all" onClick={readAll} disabled={markAllRead.isPending}>
             Mark all read
           </Button>
@@ -141,17 +174,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
       </div>
 
       <div className="feed__filters">
-        {tab !== "unread" && (
-          <select
-            aria-label="Importance"
-            value={filters.minSeverity ?? ""}
-            onChange={(e) => setFilters({ ...filters, minSeverity: (e.target.value || undefined) as MinSeverity | undefined })}
-          >
-            <option value="">Any importance</option>
-            <option value="medium">Notable and up</option>
-            <option value="high">High impact only</option>
-          </select>
-        )}
+        {!fixedTab && tab !== "unread" && importance}
         {workspaces && workspaces.length > 1 && (
           <select
             aria-label="Workspace"
@@ -187,7 +210,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
       {markAllRead.error && <p className="page__error">{errorText(markAllRead.error)}</p>}
 
       {tab && feed.data && items.length === 0 && (
-        <EmptyFeed tab={tab}filtered={filtered} emptyAction={emptyAction} onShowAll={() => setTab("all")} />
+        <EmptyFeed tab={tab} filtered={filtered} emptyAction={emptyAction} onShowAll={showAll} />
       )}
 
       <ol className="feed__list">
@@ -219,7 +242,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
           {tab === "unread" ? (
             <>
               You're all caught up.{" "}
-              <button type="button" className="feed__link" onClick={() => setTab("all")}>
+              <button type="button" className="feed__link" onClick={showAll}>
                 See all insights
               </button>
             </>
