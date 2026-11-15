@@ -273,6 +273,10 @@ export interface Insight {
   headline: string;
   /** "pending": the AI headline isn't written yet and `headline` is a fallback. */
   headline_status: "pending" | "done" | "failed";
+  /** How much it matters; null until rated. "none" never reaches the feed. */
+  severity: Severity | null;
+  /** Why that severity, in a few words. */
+  severity_reason: string | null;
   /** Changed lines with a little context, in hunks; empty for older insights. */
   diff: { op: "context" | "removed" | "added"; text: string }[][];
   added: string[];
@@ -289,6 +293,11 @@ export interface InsightState {
   saved: boolean;
   dismissed: boolean;
 }
+
+export type Severity = "high" | "medium" | "low" | "none";
+
+/** Feed importance filter: this level and up. */
+export type MinSeverity = "medium" | "high";
 
 export type InsightAction = "seen" | "open" | "save" | "unsave" | "dismiss" | "restore";
 
@@ -316,6 +325,7 @@ export type InsightScope =
 export interface InsightFilters {
   workspaceId?: string;
   competitorId?: string;
+  minSeverity?: MinSeverity;
 }
 
 const SCOPE_PATH: Record<InsightScope["kind"], string> = {
@@ -324,17 +334,26 @@ const SCOPE_PATH: Record<InsightScope["kind"], string> = {
   competitor: "competitors",
 };
 
+/** What "mark all read" covers; nothing set means the whole organization. */
+export interface MarkReadScope {
+  workspace_id?: string;
+  competitor_id?: string;
+  min_severity?: MinSeverity;
+}
+
 export const insightsApi = {
   feed: (scope: InsightScope, filters: InsightFilters, tab: InsightTab, cursor: string | null) => {
     const params = new URLSearchParams({ limit: "20", state: tab });
     if (cursor) params.set("cursor", cursor);
     if (filters.workspaceId) params.set("workspace_id", filters.workspaceId);
     if (filters.competitorId) params.set("competitor_id", filters.competitorId);
+    if (filters.minSeverity) params.set("min_severity", filters.minSeverity);
     return api<InsightFeedPage>(`/${SCOPE_PATH[scope.kind]}/${scope.id}/insights?${params}`);
   },
-  counts: (orgId: string) => api<InsightCounts>(`/organizations/${orgId}/insights/counts`),
+  counts: (orgId: string, minSeverity?: MinSeverity) =>
+    api<InsightCounts>(`/organizations/${orgId}/insights/counts${minSeverity ? `?min_severity=${minSeverity}` : ""}`),
   /** Mark read: the whole organization, or one workspace or competitor in it. */
-  markRead: (orgId: string, within: { workspace_id?: string; competitor_id?: string }) =>
+  markRead: (orgId: string, within: MarkReadScope) =>
     api<InsightCounts>(`/organizations/${orgId}/insights/read`, { method: "POST", body: within }),
   setStates: (ids: string[], action: InsightAction, opts: { keepalive?: boolean } = {}) =>
     api<{ id: string; state: InsightState }[]>("/insights/states", {

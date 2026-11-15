@@ -91,6 +91,7 @@ async def _feed(
     scope: dict,
     *,
     state: reads.FeedState,
+    min_severity: reads.MinSeverity | None,
     cursor: str | None,
     limit: int,
     url_types: list[URLType] | None,
@@ -105,6 +106,7 @@ async def _feed(
     if workspace_id:
         query["workspace_id"] = str(workspace_id)
     query |= await reads.feed_filter(mongo, reader.user_id, reader.org_id, reader.seen_until, state)
+    query |= reads.severity_filter(min_severity)
     if cursor:
         # newest first; ties on the timestamp are broken by id
         at, oid = _decode_cursor(cursor)
@@ -142,6 +144,7 @@ async def _feed(
 Limit = Query(PAGE_SIZE, ge=1, le=100)
 Types = Query(None, alias="url_type")
 State = Query("all", description="all: everything not dismissed; unread; saved")
+Importance = Query(None, description="only insights at least this important")
 
 
 @router.get("/organizations/{org_id}/insights", response_model=InsightFeed)
@@ -156,10 +159,11 @@ async def org_insights(
     workspace_id: UUID | None = None,
     competitor_id: UUID | None = None,
     state: reads.FeedState = State,
+    min_severity: reads.MinSeverity | None = Importance,
 ):
     reader = await _reader(current_user, org_id, db, mongo)
     return await _feed(
-        mongo, db, reader, {"org_id": str(org_id)}, state=state, cursor=cursor, limit=limit,
+        mongo, db, reader, {"org_id": str(org_id)}, state=state, min_severity=min_severity, cursor=cursor, limit=limit,
         url_types=url_types, workspace_id=workspace_id, competitor_id=competitor_id,
     )
 
@@ -175,13 +179,14 @@ async def workspace_insights(
     url_types: list[URLType] | None = Types,
     competitor_id: UUID | None = None,
     state: reads.FeedState = State,
+    min_severity: reads.MinSeverity | None = Importance,
 ):
     workspace = await workspace_crud.get_by_id(db, workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     reader = await _reader(current_user, workspace.org_id, db, mongo)
     return await _feed(
-        mongo, db, reader, {"workspace_id": str(workspace_id)}, state=state, cursor=cursor, limit=limit,
+        mongo, db, reader, {"workspace_id": str(workspace_id)}, state=state, min_severity=min_severity, cursor=cursor, limit=limit,
         url_types=url_types, competitor_id=competitor_id,
     )
 
@@ -196,6 +201,7 @@ async def competitor_insights(
     limit: int = Limit,
     url_types: list[URLType] | None = Types,
     state: reads.FeedState = State,
+    min_severity: reads.MinSeverity | None = Importance,
 ):
     competitor = await competitor_crud.get_by_id(db, competitor_id)
     if not competitor:
@@ -205,7 +211,7 @@ async def competitor_insights(
         raise HTTPException(status_code=404, detail="Workspace not found")
     reader = await _reader(current_user, workspace.org_id, db, mongo)
     return await _feed(
-        mongo, db, reader, {"competitor_id": str(competitor_id)}, state=state, cursor=cursor, limit=limit,
+        mongo, db, reader, {"competitor_id": str(competitor_id)}, state=state, min_severity=min_severity, cursor=cursor, limit=limit,
         url_types=url_types,
     )
 
@@ -213,8 +219,10 @@ async def competitor_insights(
 # ── Read state ───────────────────────────────────────────────────────────────
 
 
-async def _counts(mongo: MongoDBDep, db: DBSession, reader: Reader) -> InsightCounts:
-    per_pair = await reads.unread_counts(mongo, reader.user_id, reader.org_id, reader.seen_until)
+async def _counts(
+    mongo: MongoDBDep, db: DBSession, reader: Reader, min_severity: reads.MinSeverity | None = None
+) -> InsightCounts:
+    per_pair = await reads.unread_counts(mongo, reader.user_id, reader.org_id, reader.seen_until, min_severity)
     # insights of deleted competitors aren't shown, so they don't count
     live = await _competitor_names(db, {UUID(c) for _, c in per_pair})
     workspaces: dict[str, int] = {}
@@ -228,9 +236,15 @@ async def _counts(mongo: MongoDBDep, db: DBSession, reader: Reader) -> InsightCo
 
 
 @router.get("/organizations/{org_id}/insights/counts", response_model=InsightCounts)
-async def unread_counts(org_id: UUID, current_user: CurrentUser, db: DBSession, mongo: MongoDBDep):
+async def unread_counts(
+    org_id: UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+    mongo: MongoDBDep,
+    min_severity: reads.MinSeverity | None = Importance,
+):
     reader = await _reader(current_user, org_id, db, mongo)
-    return await _counts(mongo, db, reader)
+    return await _counts(mongo, db, reader, min_severity)
 
 
 @router.post("/organizations/{org_id}/insights/read", response_model=InsightCounts)
@@ -240,7 +254,7 @@ async def mark_read(
     """Mark everything read: the whole organization, or one workspace or competitor."""
     reader = await _reader(current_user, org_id, db, mongo)
     now = reads.utcnow()
-    if body.workspace_id is None and body.competitor_id is None:
+    if body.workspace_id is None and body.competitor_id is None and body.min_severity is None:
         await reads.set_seen_until(mongo, reader.user_id, reader.org_id, now)
         reader.seen_until = now
     else:
@@ -250,11 +264,12 @@ async def mark_read(
         if body.competitor_id:
             query["competitor_id"] = str(body.competitor_id)
         query |= await reads.feed_filter(mongo, reader.user_id, reader.org_id, reader.seen_until, "unread")
+        query |= reads.severity_filter(body.min_severity)
         docs = [d async for d in mongo.insights.find(
             query, {"org_id": 1, "workspace_id": 1, "competitor_id": 1, "detected_at": 1}
         )]
         await reads.apply(mongo, reader.user_id, docs, "seen", now)
-    return await _counts(mongo, db, reader)
+    return await _counts(mongo, db, reader, body.min_severity)
 
 
 @router.post("/insights/states", response_model=list[InsightStateUpdated])

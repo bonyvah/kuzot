@@ -230,14 +230,34 @@ def test_headline_prompt_and_cleanup(monkeypatch):
         def __init__(self, text):
             self.choices = [type("C", (), {"message": type("M", (), {"content": text})()})()]
 
-    replies = iter(['"Brightdesk cut Pro from $49 to $39."', "   "])
+    replies = iter([
+        r'{"headline": "\"Brightdesk cut Pro from $49 to $39.\"", "severity": "HIGH", "reason": "Price cut."}',
+        '{"headline": "Brightdesk tweaked a word", "severity": "whatever"}',
+        '{"headline": "   ", "severity": "low"}',
+        "not json",
+    ])
     fake = type("OpenAI", (), {"chat": type("Chat", (), {"completions": type("Comp", (), {
         "create": staticmethod(lambda **kw: Reply(next(replies)))})()})()})()
     monkeypatch.setattr(headline, "get_openai", lambda: fake)
 
-    assert headline.generate_headline(insight, "Brightdesk") == "Brightdesk cut Pro from $49 to $39"
-    with pytest.raises(headline.EmptyHeadline):
-        headline.generate_headline(insight, "Brightdesk")
+    first = headline.assess_change(insight, "Brightdesk")
+    assert (first.headline, first.severity, first.reason) == ("Brightdesk cut Pro from $49 to $39", "high", "Price cut")
+    # an unknown severity never hides an insight
+    assert headline.assess_change(insight, "Brightdesk").severity == "low"
+    for _ in range(2):
+        with pytest.raises(headline.EmptyHeadline):
+            headline.assess_change(insight, "Brightdesk")
+
+
+def test_trivial_changes_need_no_model():
+    tenant = {"org_id": "o", "workspace_id": "w", "competitor_id": "c", "monitored_url_id": "u",
+              "url": "https://b.example", "url_type": "homepage", "label": None}
+    moved = build_insight(tenant, ["Fast\nSimple", "Secure"], ["Secure\n  simple ", "Fast"], T0)
+    assert headline.is_trivial(moved)
+    real = build_insight(tenant, ["Fast\nSimple"], ["Fast\nCheap"], T0)
+    assert not headline.is_trivial(real)
+    added = build_insight(tenant, ["Fast\nSimple\nNew: SSO"], ["Fast\nSimple"], T0)
+    assert not headline.is_trivial(added)
 
 
 async def _start_unread(client: AsyncClient, mongo: FakeMongo, ctx: dict, since: datetime) -> None:
@@ -344,3 +364,39 @@ async def test_states_are_checked(client: AsyncClient, mongo):
     org = owner["org"]["id"]
     assert (await client.get(f"/api/v1/organizations/{org}/insights/counts", headers=stranger["headers"])).status_code == 403
     assert (await client.post(f"/api/v1/organizations/{org}/insights/read", json={}, headers=stranger["headers"])).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_severity_none_is_hidden_and_feeds_filter_by_importance(client: AsyncClient, mongo):
+    ctx = await _setup(client, "severity@example.com")
+    bright, orbit = ctx["comps"]
+    org, h = ctx["org"]["id"], ctx["headers"]
+    levels = ["high", "medium", "low", "none", None]
+    docs = []
+    for n, level in enumerate(levels):
+        doc = _insight(ctx, bright if n % 2 else orbit, T0 + timedelta(hours=n))
+        doc["severity"] = level
+        docs.append(doc)
+    mongo.insights.docs += docs
+    await _start_unread(client, mongo, ctx, T0 - timedelta(hours=1))
+    feed_url = f"/api/v1/organizations/{org}/insights"
+
+    async def severities(**params) -> list:
+        return [i["severity"] for i in (await client.get(feed_url, params=params, headers=h)).json()["items"]]
+
+    # newest first; "none" never shows, unrated (None) does
+    assert await severities() == [None, "low", "medium", "high"]
+    assert await severities(state="unread") == [None, "low", "medium", "high"]
+    assert await severities(min_severity="medium") == ["medium", "high"]
+    assert await severities(min_severity="high") == ["high"]
+    assert (await client.get(feed_url, params={"min_severity": "low"}, headers=h)).status_code == 422
+
+    counts_url = f"/api/v1/organizations/{org}/insights/counts"
+    assert (await client.get(counts_url, headers=h)).json()["total"] == 4
+    assert (await client.get(counts_url, params={"min_severity": "high"}, headers=h)).json()["total"] == 1
+
+    # Marking the important ones read leaves the rest unread
+    res = await client.post(f"/api/v1/organizations/{org}/insights/read", json={"min_severity": "medium"}, headers=h)
+    assert res.json()["total"] == 0
+    assert (await client.get(counts_url, headers=h)).json()["total"] == 2
+    assert await severities(state="unread") == [None, "low"]

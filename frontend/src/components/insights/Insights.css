@@ -365,3 +365,64 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Bursts: several changes from one competitor ── */
+
+/* Collapsed: a card with the edges of the others peeking out below. */
+.insight-group:not(.insight-group--open) {
+  position: relative;
+  padding-bottom: 8px;
+}
+
+.insight-group:not(.insight-group--open)::before,
+.insight-group:not(.insight-group--open)::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  height: 16px;
+  background: var(--surface-high);
+  border-radius: 0 0 16px 16px;
+  opacity: 0.6;
+}
+
+.insight-group:not(.insight-group--open)::before {
+  inset: auto 10px 0;
+}
+
+.insight-group:not(.insight-group--open)::after {
+  inset: auto 20px -6px;
+  opacity: 0.35;
+}
+
+.insight-group {
+  isolation: isolate;
+}
+
+.insight-group__more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--outline-variant);
+}
+
+.insight-group__more .insight__more {
+  margin-left: -8px;
+}
+
+.insight-group--open {
+  padding: 8px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 20px;
+}
+
+.insight-group__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}

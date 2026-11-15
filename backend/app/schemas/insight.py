@@ -39,6 +39,9 @@ class InsightPublic(BaseModel):
     headline: str
     # pending: the AI headline isn't written yet and `headline` is a fallback
     headline_status: Literal["pending", "done", "failed"]
+    # how much it matters, from the AI read; null until rated. "none" is never in feeds
+    severity: Literal["high", "medium", "low", "none"] | None = None
+    severity_reason: str | None = None
     # changed lines with a little context, in hunks; empty for older insights
     diff: list[list[DiffLine]] = []
     added: list[str]
@@ -75,3 +78,5 @@ class MarkReadRequest(BaseModel):
     # neither: the whole organization
     workspace_id: UUID | None = None
     competitor_id: UUID | None = None
+    # only this important and up; then marked one by one, not with the watermark
+    min_severity: Literal["medium", "high"] | None = None

@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { errorText } from "../../api/client";
-import type { Insight, InsightCounts, InsightFilters, InsightScope, InsightTab, Workspace } from "../../api/monitoring";
+import type {
+  Insight,
+  InsightCounts,
+  InsightFilters,
+  InsightScope,
+  InsightTab,
+  MinSeverity,
+  Workspace,
+} from "../../api/monitoring";
 import { useCompetitors, useInsightCounts, useInsightFeed, useMarkAllRead, useSeenQueue } from "../../api/queries";
 import { useOrg } from "../../org/OrgProvider";
 import { Button } from "../Button";
 import { InsightCard } from "./InsightCard";
+import { groupBursts, InsightGroup } from "./InsightGroup";
 import "./Insights.css";
 
 interface InsightFeedProps {
@@ -37,7 +46,7 @@ const newestFirst = (a: Insight, b: Insight) =>
 export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps) {
   const [filters, setFilters] = useState<InsightFilters>({});
   const { current: org } = useOrg();
-  const counts = useInsightCounts(org?.id);
+  const counts = useInsightCounts(org?.id, filters.minSeverity);
   const unread = unreadIn(counts.data, scope, filters);
   const markAllRead = useMarkAllRead(org?.id);
   const markSeen = useSeenQueue();
@@ -51,7 +60,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
   const tab = chosenTab ?? firstTab.current;
 
   const feed = useInsightFeed(scope, filters, tab ?? "all", !!tab);
-  const filtered = !!(filters.workspaceId || filters.competitorId);
+  const filtered = !!(filters.workspaceId || filters.competitorId || filters.minSeverity);
   // Competitors to filter by: the workspace's own, or the picked workspace's in an org feed.
   const competitorSource = scope.kind === "workspace" ? scope.id : (filters.workspaceId ?? "");
   const competitors = useCompetitors(scope.kind === "competitor" ? "" : competitorSource);
@@ -73,6 +82,13 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
     return [...cards.values()].sort(newestFirst);
   }, [data, dataUpdatedAt, view]);
 
+  // Bursts from one competitor fold into one card; saved cards are each kept on purpose.
+  const entries = useMemo(
+    () => (tab === "saved" ? items.map((i) => ({ key: i.id, items: [i] })) : groupBursts(items)),
+    [items, tab],
+  );
+  const hide = { competitor: scope.kind === "competitor", workspace: scope.kind !== "organization" };
+
   // Infinite scroll: load older insights when the end of the list comes near.
   const sentinel = useRef<HTMLDivElement>(null);
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = feed;
@@ -93,6 +109,7 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
     markAllRead.mutate({
       workspace_id: scope.kind === "workspace" ? scope.id : filters.workspaceId,
       competitor_id: scope.kind === "competitor" ? scope.id : filters.competitorId,
+      min_severity: filters.minSeverity,
     });
 
   return (
@@ -121,6 +138,15 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
       </div>
 
       <div className="feed__filters">
+        <select
+          aria-label="Importance"
+          value={filters.minSeverity ?? ""}
+          onChange={(e) => setFilters({ ...filters, minSeverity: (e.target.value || undefined) as MinSeverity | undefined })}
+        >
+          <option value="">Any importance</option>
+          <option value="medium">Notable and up</option>
+          <option value="high">High impact only</option>
+        </select>
         {workspaces && workspaces.length > 1 && (
           <select
             aria-label="Workspace"
@@ -160,13 +186,13 @@ export function InsightFeed({ scope, workspaces, emptyAction }: InsightFeedProps
       )}
 
       <ol className="feed__list">
-        {items.map((insight) => (
-          <li key={insight.id}>
-            <InsightCard
-              insight={insight}
-              hide={{ competitor: scope.kind === "competitor", workspace: scope.kind !== "organization" }}
-              onSeen={markSeen}
-            />
+        {entries.map(({ key, items: group }) => (
+          <li key={key}>
+            {group.length > 1 ? (
+              <InsightGroup insights={group} hide={hide} onSeen={markSeen} />
+            ) : (
+              <InsightCard insight={group[0]} hide={hide} onSeen={markSeen} />
+            )}
           </li>
         ))}
       </ol>
@@ -236,7 +262,7 @@ function EmptyFeed({
       <h2 className="blank__title">{filtered ? "No insights match these filters" : "No insights yet"}</h2>
       <p>
         {filtered
-          ? "Try another workspace or competitor."
+          ? "Try other filters."
           : "Every time a monitored page changes, Kuzot puts what changed here. Add competitors and their pages to start."}
       </p>
       {!filtered && emptyAction}

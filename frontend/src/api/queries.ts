@@ -21,6 +21,8 @@ import {
   type InsightScope,
   type InsightState,
   type InsightTab,
+  type MarkReadScope,
+  type MinSeverity,
   type CompetitorInput,
   type AvatarOwner,
   type JobStatus,
@@ -150,7 +152,8 @@ export function useCompetitors(workspaceId: string) {
 }
 
 export function useCompetitor(id: string) {
-  return useQuery({ queryKey: keys.competitor(id), queryFn: () => monitoringApi.competitor(id) });
+  // "" means no competitor (e.g. the sidebar off a competitor page): nothing to fetch.
+  return useQuery({ queryKey: keys.competitor(id), queryFn: () => monitoringApi.competitor(id), enabled: !!id });
 }
 
 export function useCreateWorkspace(orgId: string) {
@@ -313,7 +316,7 @@ const FEED_POLL_MS = 60_000;
 const insightKeys = {
   feed: (scope: InsightScope, filters: InsightFilters, tab: InsightTab) =>
     ["insights", scope.kind, scope.id, filters, tab] as const,
-  counts: (orgId: string) => ["insights", "counts", orgId] as const,
+  counts: (orgId: string, minSeverity?: MinSeverity) => ["insights", "counts", orgId, minSeverity ?? "any"] as const,
 };
 
 export function useInsightFeed(scope: InsightScope, filters: InsightFilters, tab: InsightTab, enabled = true) {
@@ -329,10 +332,10 @@ export function useInsightFeed(scope: InsightScope, filters: InsightFilters, tab
   });
 }
 
-export function useInsightCounts(orgId: string | undefined) {
+export function useInsightCounts(orgId: string | undefined, minSeverity?: MinSeverity) {
   return useQuery({
-    queryKey: insightKeys.counts(orgId ?? ""),
-    queryFn: () => insightsApi.counts(orgId!),
+    queryKey: insightKeys.counts(orgId ?? "", minSeverity),
+    queryFn: () => insightsApi.counts(orgId!, minSeverity),
     enabled: !!orgId,
     refetchInterval: FEED_POLL_MS,
   });
@@ -389,14 +392,17 @@ export function useInsightAction() {
 export function useMarkAllRead(orgId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (within: { workspace_id?: string; competitor_id?: string }) => insightsApi.markRead(orgId!, within),
+    mutationFn: (within: MarkReadScope) => insightsApi.markRead(orgId!, within),
     onSuccess: (counts, within) => {
-      qc.setQueryData(insightKeys.counts(orgId!), counts);
+      qc.setQueryData(insightKeys.counts(orgId!, within.min_severity), counts);
+      // the other badges (sidebar, other filters) change too
+      void qc.invalidateQueries({ queryKey: ["insights", "counts"] });
       // Mark the cached cards in scope read without refetching, so the open list doesn't jump.
       const inScope = (i: Insight) =>
         i.org_id === orgId &&
         (!within.workspace_id || i.workspace_id === within.workspace_id) &&
-        (!within.competitor_id || i.competitor_id === within.competitor_id);
+        (!within.competitor_id || i.competitor_id === within.competitor_id) &&
+        (!within.min_severity || i.severity === "high" || (within.min_severity === "medium" && i.severity === "medium"));
       const read = new Map<string, Partial<InsightState>>();
       for (const [, data] of qc.getQueriesData<FeedData>({ queryKey: ["insights"] })) {
         data?.pages?.forEach((p) => p.items.filter(inScope).forEach((i) => read.set(i.id, { seen: true })));

@@ -17,6 +17,16 @@ from pymongo import UpdateOne
 
 Action = Literal["seen", "open", "save", "unsave", "dismiss", "restore"]
 FeedState = Literal["all", "unread", "saved"]
+MinSeverity = Literal["medium", "high"]
+
+
+def severity_filter(min_severity: MinSeverity | None = None) -> dict:
+    """Insights worth showing: never those rated none; unrated ones are shown too."""
+    if min_severity == "high":
+        return {"severity": "high"}
+    if min_severity == "medium":
+        return {"severity": {"$in": ["medium", "high"]}}
+    return {"severity": {"$ne": "none"}}
 
 
 def utcnow() -> datetime:
@@ -114,11 +124,14 @@ async def apply(mongo, user_id: str, docs: list[dict], action: Action, at: datet
     await mongo.insight_states.bulk_write(ops, ordered=False)
 
 
-async def unread_counts(mongo, user_id: str, org_id: str, watermark: datetime) -> dict[tuple[str, str], int]:
+async def unread_counts(
+    mongo, user_id: str, org_id: str, watermark: datetime, min_severity: MinSeverity | None = None
+) -> dict[tuple[str, str], int]:
     """Unread insights per (workspace_id, competitor_id)."""
     read = await _read_ids(mongo, user_id, org_id, watermark)
+    match = {"org_id": org_id, "detected_at": {"$gt": watermark}, "_id": {"$nin": read}}
     pipeline = [
-        {"$match": {"org_id": org_id, "detected_at": {"$gt": watermark}, "_id": {"$nin": read}}},
+        {"$match": match | severity_filter(min_severity)},
         {"$group": {"_id": {"w": "$workspace_id", "c": "$competitor_id"}, "n": {"$sum": 1}}},
     ]
     return {

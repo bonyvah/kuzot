@@ -6,7 +6,7 @@ import { useInsightAction } from "../../api/queries";
 import { formatDate, hostname, timeAgo } from "../../format";
 import { Avatar } from "../Avatar";
 import { Button } from "../Button";
-import { Chip } from "../Chip";
+import { Chip, type ChipTone } from "../Chip";
 import { pageTypeName } from "../urlForm";
 import "../Dialog.css";
 import "./Insights.css";
@@ -68,10 +68,19 @@ export function InsightCard({
   insight: i,
   hide,
   onSeen,
-}: InsightCardProps & { onSeen?: (id: string) => void }) {
+  unread: unreadOverride,
+  children,
+}: InsightCardProps & {
+  onSeen?: (id: string) => void;
+  /** Override the dot, e.g. a group's lead card stands for unread cards behind it. */
+  unread?: boolean;
+  /** Extra row under the card (a group's "more changes" bar). */
+  children?: React.ReactNode;
+}) {
   const action = useInsightAction();
   const card = useRef<HTMLElement>(null);
-  useSeenOnScreen(card, !!onSeen && !i.state.seen && !i.state.dismissed, () => onSeen?.(i.id));
+  const unread = unreadOverride ?? !i.state.seen;
+  useSeenOnScreen(card, !!onSeen && unread && !i.state.dismissed, () => onSeen?.(i.id));
 
   const [open, setOpenState] = useState(false);
   const setOpen = (next: boolean) => {
@@ -114,7 +123,6 @@ export function InsightCard({
     );
   }
 
-  const unread = !i.state.seen;
   return (
     <article
       ref={card}
@@ -159,6 +167,7 @@ export function InsightCard({
           )}
         </div>
       </footer>
+      {children}
 
       {open && <InsightDialog insight={i} hunks={hunks} hide={hide} onClose={() => setOpen(false)} />}
     </article>
@@ -178,6 +187,7 @@ function InsightHead({ insight: i, hide }: InsightCardProps) {
           {i.competitor_name}
         </Link>
       )}
+      <SeverityChip insight={i} />
       <Chip tone={i.kind === "monitoring_started" ? "success" : "info"}>{pageTypeName(i)}</Chip>
       {!hide?.workspace && (
         <Link to={`/workspaces/${i.workspace_id}`} className="insight__ws">
@@ -188,6 +198,22 @@ function InsightHead({ insight: i, hide }: InsightCardProps) {
         {timeAgo(i.detected_at)}
       </time>
     </header>
+  );
+}
+
+const SEVERITY_LABEL: Partial<Record<NonNullable<Insight["severity"]>, [string, ChipTone]>> = {
+  high: ["High impact", "error"],
+  medium: ["Notable", "warning"],
+};
+
+/** High and medium get a label; routine changes stay quiet. */
+function SeverityChip({ insight: i }: { insight: Insight }) {
+  const label = i.severity ? SEVERITY_LABEL[i.severity] : undefined;
+  if (!label) return null;
+  return (
+    <span title={i.severity_reason ?? undefined}>
+      <Chip tone={label[1]}>{label[0]}</Chip>
+    </span>
   );
 }
 
