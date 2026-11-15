@@ -279,6 +279,27 @@ export interface Insight {
   removed: string[];
   added_count: number;
   removed_count: number;
+  /** What the signed-in user did with it. */
+  state: InsightState;
+}
+
+export interface InsightState {
+  seen: boolean;
+  opened: boolean;
+  saved: boolean;
+  dismissed: boolean;
+}
+
+export type InsightAction = "seen" | "open" | "save" | "unsave" | "dismiss" | "restore";
+
+/** Feed tabs. "all" leaves out what the user dismissed. */
+export type InsightTab = "unread" | "all" | "saved";
+
+/** Unread insights for the signed-in user, keyed by workspace and competitor id. */
+export interface InsightCounts {
+  total: number;
+  workspaces: Record<string, number>;
+  competitors: Record<string, number>;
 }
 
 export interface InsightFeedPage {
@@ -304,13 +325,23 @@ const SCOPE_PATH: Record<InsightScope["kind"], string> = {
 };
 
 export const insightsApi = {
-  feed: (scope: InsightScope, filters: InsightFilters, cursor: string | null) => {
-    const params = new URLSearchParams({ limit: "20" });
+  feed: (scope: InsightScope, filters: InsightFilters, tab: InsightTab, cursor: string | null) => {
+    const params = new URLSearchParams({ limit: "20", state: tab });
     if (cursor) params.set("cursor", cursor);
     if (filters.workspaceId) params.set("workspace_id", filters.workspaceId);
     if (filters.competitorId) params.set("competitor_id", filters.competitorId);
     return api<InsightFeedPage>(`/${SCOPE_PATH[scope.kind]}/${scope.id}/insights?${params}`);
   },
+  counts: (orgId: string) => api<InsightCounts>(`/organizations/${orgId}/insights/counts`),
+  /** Mark read: the whole organization, or one workspace or competitor in it. */
+  markRead: (orgId: string, within: { workspace_id?: string; competitor_id?: string }) =>
+    api<InsightCounts>(`/organizations/${orgId}/insights/read`, { method: "POST", body: within }),
+  setStates: (ids: string[], action: InsightAction, opts: { keepalive?: boolean } = {}) =>
+    api<{ id: string; state: InsightState }[]>("/insights/states", {
+      method: "POST",
+      body: { ids, action },
+      keepalive: opts.keepalive,
+    }),
 };
 
 // ── Page discovery ───────────────────────────────────────────────────────────

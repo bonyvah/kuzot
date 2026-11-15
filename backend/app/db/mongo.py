@@ -33,6 +33,10 @@ async def connect_to_mongo() -> None:
     # insight feeds: newest first per org, workspace or competitor
     for scope in ("org_id", "workspace_id", "competitor_id"):
         await mongodb.db.insights.create_index([(scope, 1), ("detected_at", -1), ("_id", -1)])
+    # per-user read state (app.insights.reads)
+    await mongodb.db.insight_cursors.create_index([("user_id", 1), ("org_id", 1)], unique=True)
+    await mongodb.db.insight_states.create_index([("user_id", 1), ("insight_id", 1)], unique=True)
+    await mongodb.db.insight_states.create_index([("user_id", 1), ("org_id", 1), ("detected_at", -1)])
 
 
 async def close_mongo_connection() -> None:

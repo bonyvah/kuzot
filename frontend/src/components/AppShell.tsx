@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 
 import { useAuth, useUser } from "../auth/AuthProvider";
-import { OrgProvider } from "../org/OrgProvider";
+import { useInsightCounts } from "../api/queries";
+import { OrgProvider, useOrg } from "../org/OrgProvider";
 import { Avatar } from "./Avatar";
 import { AvatarDialog } from "./AvatarDialog";
 import { Logo } from "./Logo";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { UnreadBadge } from "./UnreadBadge";
 import { WorkspaceTree } from "./WorkspaceTree";
 import "./AppShell.css";
 
@@ -21,6 +23,8 @@ export function AppShell() {
 
 function Shell() {
   const [navOpen, setNavOpen] = useState(true);
+  const { current: org } = useOrg();
+  const unread = useInsightCounts(org?.id);
 
   return (
     <div className={`shell${navOpen ? "" : " shell--collapsed"}`}>
@@ -50,6 +54,7 @@ function Shell() {
             <path fill="currentColor" d="M7 2v11h3v9l7-12h-4l4-8z" />
           </svg>
           <span className="nav-item__label">Insights</span>
+          <UnreadBadge count={unread.data?.total} />
         </NavLink>
         <NavLink to="/workspaces" end className="nav-item">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">

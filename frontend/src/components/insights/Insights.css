@@ -225,3 +225,143 @@
 .insight-dialog {
   cursor: auto;
 }
+
+/* ── Tabs and read state ── */
+
+.feed__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.feed__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-high);
+  border-radius: 12px;
+}
+
+.feed__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.feed__tab:hover {
+  background: var(--press);
+  color: var(--text);
+}
+
+.feed__tab[aria-selected="true"] {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.feed__count {
+  min-width: 20px;
+  padding: 0 6px;
+  background: var(--primary);
+  border-radius: 10px;
+  color: var(--on-primary);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.feed__read-all {
+  margin-left: auto;
+}
+
+.feed__link {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.feed__link:hover {
+  text-decoration: underline;
+}
+
+.insight {
+  position: relative;
+}
+
+.insight--unread {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.insight__dot {
+  position: absolute;
+  top: 24px;
+  left: 7px;
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+}
+
+.insight__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.insight__actions .insight__more {
+  margin-left: 4px;
+}
+
+.insight__icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.insight__icon:hover {
+  background: var(--press);
+  color: var(--text);
+}
+
+.insight__icon[aria-pressed="true"] {
+  color: var(--primary);
+}
+
+.insight--dismissed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 20px;
+  background: none;
+  border: 1px dashed var(--outline-variant);
+}
+
+.insight__dismissed-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
