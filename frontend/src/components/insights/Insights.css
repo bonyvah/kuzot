@@ -10,7 +10,8 @@
   display: none;
 }
 
-.feed__filters select {
+.feed__filters select,
+.feed__select {
   height: 36px;
   padding: 0 10px;
   background: var(--surface-high);
@@ -224,4 +225,214 @@
 
 .insight-dialog {
   cursor: auto;
+}
+
+/* ── Tabs and read state ── */
+
+.feed__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.feed__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-high);
+  border-radius: 12px;
+}
+
+.feed__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.feed__tab:hover {
+  background: var(--press);
+  color: var(--text);
+}
+
+.feed__tab[aria-selected="true"] {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.feed__count {
+  min-width: 20px;
+  padding: 0 6px;
+  background: var(--primary);
+  border-radius: 10px;
+  color: var(--on-primary);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.feed__read-all {
+  margin-left: auto;
+}
+
+.feed__link {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.feed__link:hover {
+  text-decoration: underline;
+}
+
+.insight {
+  position: relative;
+}
+
+.insight--unread {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.insight__dot {
+  position: absolute;
+  top: 24px;
+  left: 7px;
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+}
+
+.insight__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.insight__actions .insight__more {
+  margin-left: 4px;
+}
+
+.insight__icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.insight__icon:hover {
+  background: var(--press);
+  color: var(--text);
+}
+
+.insight__icon[aria-pressed="true"] {
+  color: var(--primary);
+}
+
+.insight--dismissed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 20px;
+  background: none;
+  border: 1px dashed var(--outline-variant);
+}
+
+.insight__dismissed-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Bursts: several changes from one competitor ── */
+
+/* Collapsed: a card with the edges of the others peeking out below. */
+.insight-group:not(.insight-group--open) {
+  position: relative;
+  padding-bottom: 8px;
+}
+
+.insight-group:not(.insight-group--open)::before,
+.insight-group:not(.insight-group--open)::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  height: 16px;
+  background: var(--surface-high);
+  border-radius: 0 0 16px 16px;
+  opacity: 0.6;
+}
+
+.insight-group:not(.insight-group--open)::before {
+  inset: auto 10px 0;
+}
+
+.insight-group:not(.insight-group--open)::after {
+  inset: auto 20px -6px;
+  opacity: 0.35;
+}
+
+.insight-group {
+  isolation: isolate;
+}
+
+.insight-group__more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--outline-variant);
+}
+
+.insight-group__more .insight__more {
+  margin-left: -8px;
+}
+
+.insight-group--open {
+  padding: 8px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 20px;
+}
+
+.insight-group__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.feed__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
 }

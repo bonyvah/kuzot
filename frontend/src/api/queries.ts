@@ -1,4 +1,12 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useAuth } from "../auth/AuthProvider";
 
@@ -6,8 +14,15 @@ import {
   insightsApi,
   intelligenceApi,
   monitoringApi,
+  type Insight,
+  type InsightAction,
+  type InsightFeedPage,
   type InsightFilters,
   type InsightScope,
+  type InsightState,
+  type InsightTab,
+  type MarkReadScope,
+  type MinSeverity,
   type CompetitorInput,
   type AvatarOwner,
   type JobStatus,
@@ -137,7 +152,8 @@ export function useCompetitors(workspaceId: string) {
 }
 
 export function useCompetitor(id: string) {
-  return useQuery({ queryKey: keys.competitor(id), queryFn: () => monitoringApi.competitor(id) });
+  // "" means no competitor (e.g. the sidebar off a competitor page): nothing to fetch.
+  return useQuery({ queryKey: keys.competitor(id), queryFn: () => monitoringApi.competitor(id), enabled: !!id });
 }
 
 export function useCreateWorkspace(orgId: string) {
@@ -295,12 +311,151 @@ export function useCreateReport(workspaceId: string) {
 // New changes are found by scheduled scrapes at any time; a minute is fresh enough.
 const FEED_POLL_MS = 60_000;
 
-export function useInsightFeed(scope: InsightScope, filters: InsightFilters) {
+// Feeds: ["insights", scope kind, scope id, filters, tab]. Counts live under "insights" too,
+// so every existing ["insights"] invalidation refreshes the unread badges as well.
+const insightKeys = {
+  feed: (scope: InsightScope, filters: InsightFilters, tab: InsightTab) =>
+    ["insights", scope.kind, scope.id, filters, tab] as const,
+  counts: (orgId: string, minSeverity?: MinSeverity) => ["insights", "counts", orgId, minSeverity ?? "any"] as const,
+};
+
+export function useInsightFeed(scope: InsightScope, filters: InsightFilters, tab: InsightTab, enabled = true) {
   return useInfiniteQuery({
-    queryKey: ["insights", scope.kind, scope.id, filters],
-    queryFn: ({ pageParam }) => insightsApi.feed(scope, filters, pageParam),
+    queryKey: insightKeys.feed(scope, filters, tab),
+    queryFn: ({ pageParam }) => insightsApi.feed(scope, filters, tab, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_cursor,
     refetchInterval: FEED_POLL_MS,
+    // Read state changes as the user scrolls: going back to a tab always refetches it.
+    staleTime: 0,
+    enabled,
   });
+}
+
+export function useInsightCounts(orgId: string | undefined, minSeverity?: MinSeverity) {
+  return useQuery({
+    queryKey: insightKeys.counts(orgId ?? "", minSeverity),
+    queryFn: () => insightsApi.counts(orgId!, minSeverity),
+    enabled: !!orgId,
+    refetchInterval: FEED_POLL_MS,
+  });
+}
+
+type FeedData = InfiniteData<InsightFeedPage, string | null>;
+
+/** Change the user's state on cached insights, in every feed that holds them. */
+function patchStates(qc: QueryClient, states: Map<string, Partial<InsightState>>) {
+  qc.setQueriesData<FeedData>({ queryKey: ["insights"], predicate: (q) => q.queryKey[1] !== "counts" }, (data) =>
+    data?.pages
+      ? {
+          ...data,
+          pages: data.pages.map((p) => ({
+            ...p,
+            items: p.items.map((i) => (states.has(i.id) ? { ...i, state: { ...i.state, ...states.get(i.id) } } : i)),
+          })),
+        }
+      : data,
+  );
+}
+
+// What each action does to the state, applied before the server answers.
+const OPTIMISTIC: Record<InsightAction, Partial<InsightState>> = {
+  seen: { seen: true },
+  open: { seen: true, opened: true },
+  save: { saved: true, dismissed: false },
+  unsave: { saved: false },
+  dismiss: { seen: true, dismissed: true, saved: false },
+  restore: { dismissed: false },
+};
+
+/** Save, dismiss, open and friends. Lists don't drop or gain cards until their next fetch. */
+export function useInsightAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, action }: { ids: string[]; action: InsightAction }) => insightsApi.setStates(ids, action),
+    onMutate: ({ ids, action }) => patchStates(qc, new Map(ids.map((id) => [id, OPTIMISTIC[action]]))),
+    onSuccess: (updated) => patchStates(qc, new Map(updated.map((u) => [u.id, u.state]))),
+    onSettled: (_data, error, { action }) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["insights", "counts"] }),
+        // The saved tab (and on failure, everything) catches up next time it's shown.
+        qc.invalidateQueries({
+          queryKey: ["insights"],
+          predicate: (q) => !!error || (action !== "seen" && action !== "open" && q.queryKey[4] === "saved"),
+          refetchType: error ? "active" : "none",
+        }),
+      ]),
+  });
+}
+
+/** Mark everything read: the whole organization, or one workspace or competitor. */
+export function useMarkAllRead(orgId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (within: MarkReadScope) => insightsApi.markRead(orgId!, within),
+    onSuccess: (counts, within) => {
+      qc.setQueryData(insightKeys.counts(orgId!, within.min_severity), counts);
+      // the other badges (sidebar, other filters) change too
+      void qc.invalidateQueries({ queryKey: ["insights", "counts"] });
+      // Mark the cached cards in scope read without refetching, so the open list doesn't jump.
+      const inScope = (i: Insight) =>
+        i.org_id === orgId &&
+        (!within.workspace_id || i.workspace_id === within.workspace_id) &&
+        (!within.competitor_id || i.competitor_id === within.competitor_id) &&
+        (!within.min_severity || i.severity === "high" || (within.min_severity === "medium" && i.severity === "medium"));
+      const read = new Map<string, Partial<InsightState>>();
+      for (const [, data] of qc.getQueriesData<FeedData>({ queryKey: ["insights"] })) {
+        data?.pages?.forEach((p) => p.items.filter(inScope).forEach((i) => read.set(i.id, { seen: true })));
+      }
+      patchStates(qc, read);
+    },
+  });
+}
+
+const SEEN_FLUSH_MS = 2_000;
+
+/**
+ * Queue of insights the user has looked at; sent in batches, and once more as the
+ * page closes. Returns a function to call with an insight id when it was seen.
+ */
+export function useSeenQueue() {
+  const qc = useQueryClient();
+  const queue = useRef(new Set<string>());
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const flush = useCallback(
+    (closing = false) => {
+      clearTimeout(timer.current);
+      timer.current = undefined;
+      const ids = [...queue.current].slice(0, 100);
+      ids.forEach((id) => queue.current.delete(id));
+      if (!ids.length) return;
+      patchStates(qc, new Map(ids.map((id) => [id, { seen: true }])));
+      insightsApi
+        .setStates(ids, "seen", { keepalive: closing })
+        .then(() => qc.invalidateQueries({ queryKey: ["insights", "counts"] }))
+        .catch(() => {
+          // not saved: they stay unread and get another chance next visit
+        });
+      if (queue.current.size) timer.current = setTimeout(flush, SEEN_FLUSH_MS);
+    },
+    [qc],
+  );
+
+  useEffect(() => {
+    const onHide = () => flush(true);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      flush();
+    };
+  }, [flush]);
+
+  return useCallback(
+    (id: string) => {
+      queue.current.add(id);
+      timer.current ??= setTimeout(flush, SEEN_FLUSH_MS);
+    },
+    [flush],
+  );
 }

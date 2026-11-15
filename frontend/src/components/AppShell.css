@@ -241,3 +241,15 @@
   background: var(--primary);
   color: var(--on-primary);
 }
+
+/* Insights' own views (All, Saved): smaller and indented under it. */
+.nav-item.nav-sub {
+  height: 30px;
+  padding-left: 46px;
+  gap: 14px;
+  font-size: 13px;
+}
+
+.shell--collapsed .nav-item.nav-sub {
+  padding-left: 19px;
+}

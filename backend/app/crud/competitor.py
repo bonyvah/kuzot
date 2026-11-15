@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.competitor import Competitor
 from app.models.monitored_url import MonitoredURL
-from app.schemas.competitor import CompetitorCreate, CompetitorUpdate, MonitoredURLCreate
+from app.schemas.competitor import CompetitorCreate, CompetitorUpdate
 
 
 class CompetitorCRUD:

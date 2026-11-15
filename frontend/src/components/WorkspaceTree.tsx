@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { NavLink, useMatch } from "react-router";
 
 import type { Workspace } from "../api/monitoring";
-import { useCompetitor, useCompetitors, useWorkspaces } from "../api/queries";
+import { useCompetitor, useCompetitors, useInsightCounts, useWorkspaces } from "../api/queries";
 import { useOrg } from "../org/OrgProvider";
 import { Avatar } from "./Avatar";
+import { UnreadBadge } from "./UnreadBadge";
 import "./WorkspaceTree.css";
 
 const EXPANDED_KEY = "kuzot.nav.expanded";
@@ -77,12 +78,15 @@ export function WorkspaceTree() {
 
 function WorkspaceNode({ ws, open, onToggle }: { ws: Workspace; open: boolean; onToggle: () => void }) {
   const listId = `tree-${ws.id}`;
+  const unread = useInsightCounts(ws.org_id).data;
   return (
     <li>
       <div className="tree__row">
         <NavLink to={`/workspaces/${ws.id}`} end={false} className="nav-item tree__link" title={ws.name}>
           <Avatar name={ws.name} avatar={ws} size={20} className="nav-item__avatar" />
           <span className="nav-item__label tree__name">{ws.name}</span>
+          {/* collapsed: the competitors' counts are hidden, so the workspace shows the sum */}
+          {!open && <UnreadBadge count={unread?.workspaces[ws.id]} />}
         </NavLink>
         <button
           type="button"
@@ -97,12 +101,20 @@ function WorkspaceNode({ ws, open, onToggle }: { ws: Workspace; open: boolean; o
           </svg>
         </button>
       </div>
-      {open && <CompetitorList id={listId} workspaceId={ws.id} />}
+      {open && <CompetitorList id={listId} workspaceId={ws.id} unread={unread?.competitors} />}
     </li>
   );
 }
 
-function CompetitorList({ id, workspaceId }: { id: string; workspaceId: string }) {
+function CompetitorList({
+  id,
+  workspaceId,
+  unread,
+}: {
+  id: string;
+  workspaceId: string;
+  unread: Record<string, number> | undefined;
+}) {
   const competitors = useCompetitors(workspaceId);
   const items = competitors.data?.items ?? [];
   return (
@@ -114,6 +126,7 @@ function CompetitorList({ id, workspaceId }: { id: string; workspaceId: string }
           <NavLink to={`/competitors/${c.id}`} className="nav-item tree__child" title={c.name}>
             <Avatar name={c.name} avatar={c} size={18} className="nav-item__avatar" />
             <span className="nav-item__label tree__name">{c.name}</span>
+            <UnreadBadge count={unread?.[c.id]} />
           </NavLink>
         </li>
       ))}

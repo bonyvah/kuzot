@@ -4,7 +4,7 @@ set -e
 case "$1" in
   uvicorn)
     echo "⏳ Running migrations..."
-    uv run alembic upgrade head
+    alembic upgrade head   # the venv is on PATH; uv run would try to re-sync it
     echo "✅ Migrations done."
     ;;
 esac

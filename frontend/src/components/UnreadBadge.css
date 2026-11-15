@@ -1,0 +1,28 @@
+.nav-badge {
+  flex: none;
+  margin-left: auto;
+  min-width: 18px;
+  padding: 0 5px;
+  background: var(--primary);
+  border-radius: 9px;
+  color: var(--on-primary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* Icon-only rail: a dot on the icon instead of the number. */
+.shell--collapsed .nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 10px;
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+}
+
+.shell--collapsed .nav-item {
+  position: relative;
+}

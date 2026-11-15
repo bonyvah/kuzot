@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     APIFY_FACEBOOK_ACTOR: str = "apify~facebook-posts-scraper"
     APIFY_X_ACTOR: str = "apidojo~tweet-scraper"
 
+    # ── Tracing (off without an endpoint) ───────────────────────────
+    OTEL_EXPORTER_OTLP_ENDPOINT: str | None = None
+
     # ── App ─────────────────────────────────────────────────────────
     APP_ENV: Literal["dev", "prod", "test"] = "dev"
     DEBUG: bool = False

@@ -8,7 +8,6 @@ from app.models.scrape_job import (
     ACTIVE_JOB_WINDOW,
     ScrapeJob,
     ScrapeJobStatus,
-    TriggeredBy,
 )
 from app.schemas.scrape_job import ScrapeJobCreate
 

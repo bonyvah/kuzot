@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from fastapi.responses import JSONResponse
 
+from app.api.v1.router import api_router
+from app.core.config import settings
+from app.core.tracing import setup_tracing
 from app.db.mongo import connect_to_mongo, close_mongo_connection
 from app.db.dependencies import DBSession
 from app.db.redis import set_redis, close_redis
@@ -28,15 +31,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-from app.api.v1.router import api_router
-
 app.include_router(api_router, prefix="/api/v1")
+
+if setup_tracing("kuzot-api"):
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="health/live,health/ready")
 
 
 @app.get("/health/live")

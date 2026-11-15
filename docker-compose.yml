@@ -83,6 +83,14 @@ services:
     volumes:
       - miniodata:/data
 
+  # ─── Tracing ───────────────────────────────────────────────────
+  jaeger:                        # traces UI; in-memory, wiped on restart
+    image: jaegertracing/all-in-one:1.76.0
+    container_name: kuzot-jaeger
+    ports:
+      - "16686:16686"   # web UI
+      - "4318:4318"     # OTLP over HTTP
+
   # ─── Backend ───────────────────────────────────────────────────
   api:
     container_name: kuzot-api
@@ -96,6 +104,7 @@ services:
       AWS_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: kuzot
       AWS_SECRET_ACCESS_KEY: kuzot-dev-secret
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,6 +123,8 @@ services:
     build: ./backend
     command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "scraping", "--pool=gevent", "--concurrency=50", "--loglevel=info"]
     env_file: ./backend/.env
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -132,6 +143,8 @@ services:
     user: "1000:1000"      # untrusted pages: don't run Chromium as root (match host uid for the bind mount)
     shm_size: "512mb"      # Chromium needs more than Docker's default 64MB /dev/shm
     env_file: ./backend/.env
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -148,6 +161,8 @@ services:
     build: ./backend
     command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "embedding", "--pool=prefork", "--concurrency=4", "--loglevel=info"]
     env_file: ./backend/.env
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
       rabbitmq:
         condition: service_healthy

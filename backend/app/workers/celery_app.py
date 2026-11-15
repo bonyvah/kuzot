@@ -1,7 +1,9 @@
 from celery import Celery
+from celery.signals import worker_init, worker_process_init
 from kombu import Exchange, Queue
 
 from app.core.config import settings
+from app.core.tracing import setup_tracing
 
 celery_app = Celery(
     "kuzot",
@@ -43,3 +45,16 @@ celery_app.conf.update(
         },
     },
 )
+
+
+# The exporter's thread doesn't survive a fork, so prefork workers start tracing
+# in each child; pools that never fork (gevent) don't fire worker_process_init.
+@worker_process_init.connect(weak=False)
+def _trace_forked_worker(**_) -> None:
+    setup_tracing("kuzot-worker")
+
+
+@worker_init.connect(weak=False)
+def _trace_unforked_worker(sender, **_) -> None:
+    if "prefork" not in str(sender.pool_cls):
+        setup_tracing("kuzot-worker")

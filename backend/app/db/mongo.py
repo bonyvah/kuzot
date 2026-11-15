@@ -25,10 +25,18 @@ async def connect_to_mongo() -> None:
         [("monitored_url_id", 1), ("detected_at", -1)]
     )
     await mongodb.db.page_chunks.create_index([("monitored_url_id", 1)])
+    # the agent's compare_pricing tool: a workspace's current pricing text
+    await mongodb.db.page_chunks.create_index(
+        [("workspace_id", 1), ("url_type", 1), ("removed_at", 1)]
+    )
     await mongodb.db.reports.create_index([("workspace_id", 1), ("created_at", -1)])
     # insight feeds: newest first per org, workspace or competitor
     for scope in ("org_id", "workspace_id", "competitor_id"):
         await mongodb.db.insights.create_index([(scope, 1), ("detected_at", -1), ("_id", -1)])
+    # per-user read state (app.insights.reads)
+    await mongodb.db.insight_cursors.create_index([("user_id", 1), ("org_id", 1)], unique=True)
+    await mongodb.db.insight_states.create_index([("user_id", 1), ("insight_id", 1)], unique=True)
+    await mongodb.db.insight_states.create_index([("user_id", 1), ("org_id", 1), ("detected_at", -1)])
 
 
 async def close_mongo_connection() -> None:

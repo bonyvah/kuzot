@@ -76,11 +76,13 @@ interface RequestOptions {
   auth?: boolean;
   /** Abort the request, e.g. when the user cancels a slow one. */
   signal?: AbortSignal;
+  /** Let the request finish after the page closes (small bodies only). */
+  keepalive?: boolean;
 }
 
 export async function api<T>(
   path: string,
-  { method = "GET", body, auth = true, signal }: RequestOptions = {},
+  { method = "GET", body, auth = true, signal, keepalive }: RequestOptions = {},
 ): Promise<T> {
   const send = () => {
     const headers: Record<string, string> = {};
@@ -94,6 +96,7 @@ export async function api<T>(
       body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       credentials: "same-origin",
       signal,
+      keepalive,
     });
   };
 

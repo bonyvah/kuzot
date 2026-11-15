@@ -80,4 +80,7 @@ def build_insight(
         "removed_count": len(removed),
         "headline": fallback_headline(tenant["url_type"], tenant.get("label")),
         "headline_status": "pending",
+        # set with the AI headline; unset means not rated yet (shown)
+        "severity": None,
+        "severity_reason": None,
     }

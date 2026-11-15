@@ -45,6 +45,8 @@ def started_insight(url: MonitoredURL, org_id: str, workspace_id: str, at: datet
         "detected_at": at,
         "headline": started_headline(url_type, url.label),
         "headline_status": "done",
+        "severity": "low",
+        "severity_reason": None,
         "diff": [],
         "added": [],
         "removed": [],
