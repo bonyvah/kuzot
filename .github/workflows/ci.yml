@@ -10,8 +10,28 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+# Settings the backend requires at import. Tests and offline evals fake the
+# external services, so none of these is ever used to connect anywhere real.
+env:
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/kuzot_test
+  DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@localhost:5433/kuzot_test
+  MONGO_URI: mongodb://localhost:27017/kuzot
+  REDIS_URL: redis://localhost:6379/0
+  CELERY_RESULT_BACKEND: redis://localhost:6379/1
+  RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+  OPENAI_API_KEY: sk-ci-not-a-key
+  PINECONE_API_KEY: ci-not-a-key
+  PINECONE_INDEX_NAME: kuzot-ci
+  JWT_SECRET_KEY: ci-access-secret-not-for-production
+  JWT_REFRESH_SECRET_KEY: ci-refresh-secret-not-for-production
+  APP_ENV: test
+
 jobs:
   backend:
+    name: Backend tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,21 +50,6 @@ jobs:
       redis:
         image: redis:7-alpine
         ports: ["6379:6379"]
-    env:
-      # Settings the app requires at import. Tests fake the external services,
-      # so none of these is ever used to connect anywhere real.
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/kuzot_test
-      DATABASE_URL_TEST: postgresql+asyncpg://postgres:postgres@localhost:5433/kuzot_test
-      MONGO_URI: mongodb://localhost:27017/kuzot
-      REDIS_URL: redis://localhost:6379/0
-      CELERY_RESULT_BACKEND: redis://localhost:6379/1
-      RABBITMQ_URL: amqp://guest:guest@localhost:5672/
-      OPENAI_API_KEY: sk-ci-not-a-key
-      PINECONE_API_KEY: ci-not-a-key
-      PINECONE_INDEX_NAME: kuzot-ci
-      JWT_SECRET_KEY: ci-access-secret-not-for-production
-      JWT_REFRESH_SECRET_KEY: ci-refresh-secret-not-for-production
-      APP_ENV: test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -53,9 +58,34 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync --frozen
       - run: uv run ruff check --ignore E501,I001 app tests
-      - run: uv run pytest -q
+      # fails under the 80% set in pyproject.toml ([tool.coverage.report] fail_under)
+      - run: uv run pytest -q --cov --cov-report=term-missing:skip-covered
+
+  evals:
+    name: Offline evals
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # pricing diffs and tool schemas: no model calls, no API key (see `make evals-offline`)
+      - run: >-
+          uv run npx --yes promptfoo@0.125.1 eval -c evals/promptfooconfig.yaml
+          --no-cache --no-write --filter-metadata tier=offline
+        env:
+          PROMPTFOO_DISABLE_TELEMETRY: "1"
 
   frontend:
+    name: Frontend build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -72,3 +102,28 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm build   # tsc + vite build
+
+  images:
+    name: Docker images
+    # main builds and pushes them in deploy.yml; elsewhere, check they still build
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: backend
+            dockerfile: backend/Dockerfile
+          - name: web
+            context: .
+            dockerfile: nginx/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
