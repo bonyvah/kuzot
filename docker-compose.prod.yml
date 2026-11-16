@@ -112,7 +112,7 @@ services:
       retries: 10
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: bonyvah/minio:RELEASE.2025-04-22T22-12-26Z
     restart: unless-stopped
     logging: *logging
     command: ["server", "/data"]
